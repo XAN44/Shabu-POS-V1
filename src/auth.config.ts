@@ -1,8 +1,9 @@
+export const runtime = "nodejs";
 import { NextAuthConfig } from "next-auth";
 import { loginSchema } from "./app/schema/LoginSchema";
-import { comparePassword } from "./utils/password";
 import db from "./app/lib/prismaClient";
 import Credentials from "next-auth/providers/credentials";
+import bcrypt from "bcrypt";
 
 export default {
   providers: [
@@ -29,12 +30,9 @@ export default {
 
           if (!user || !user.password) return null;
 
-          const matchPw = await comparePassword({
-            plainPassword: password,
-            hashedPassword: user.password,
-          });
+          const isPasswordMatch = await bcrypt.compare(password, user.password);
 
-          if (matchPw) return user;
+          if (isPasswordMatch) return user;
         }
 
         return null;

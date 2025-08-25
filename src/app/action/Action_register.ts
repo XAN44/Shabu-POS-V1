@@ -1,9 +1,9 @@
 "use server";
 
 import * as z from "zod";
-import { saltAndHashPassword } from "../../utils/password";
 import { registerSchema } from "../schema/LoginSchema";
 import db from "../lib/prismaClient";
+import bcrypt from "bcrypt";
 
 export const register_action = async (
   value: z.infer<typeof registerSchema>
@@ -16,8 +16,7 @@ export const register_action = async (
 
   const { email, password } = await validateField.data;
 
-  const hasPw = await saltAndHashPassword({ password });
-
+  const hasPw = await bcrypt.hash(password, 10);
   const existingUser = await db.user.findUnique({
     where: {
       email,
