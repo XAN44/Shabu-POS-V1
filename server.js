@@ -306,10 +306,6 @@ app.prepare().then(() => {
   process.on("uncaughtException", (error) => {
     console.error("🚨 Uncaught Exception:", error);
   });
-  console.log("✅ Starting custom server...");
-  console.log("NODE_ENV:", process.env.NODE_ENV);
-  console.log("PORT:", port);
-  console.log("CLIENT_URL:", process.env.CLIENT_URL);
 
   process.on("unhandledRejection", (reason, promise) => {
     console.error("🚨 Unhandled Rejection at:", promise, "reason:", reason);
