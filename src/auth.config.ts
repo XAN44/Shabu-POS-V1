@@ -3,7 +3,7 @@ import { NextAuthConfig } from "next-auth";
 import { loginSchema } from "./app/schema/LoginSchema";
 import db from "./app/lib/prismaClient";
 import Credentials from "next-auth/providers/credentials";
-import bcrypt from "bcrypt";
+import bcrypt from "bcryptjs";
 
 export default {
   providers: [

@@ -2,7 +2,6 @@
 
 @import "tailwindcss/preflight"; /* แทน base */
 @import "tailwindcss/utilities"; /* แทน utilities */
-@import "tw-animate-css"; /* plugin animation */
 
 @custom-variant dark (&:is(.dark *));
 

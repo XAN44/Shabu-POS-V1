@@ -3,7 +3,7 @@
 import * as z from "zod";
 import { registerSchema } from "../schema/LoginSchema";
 import db from "../lib/prismaClient";
-import bcrypt from "bcrypt";
+import bcrypt from "bcryptjs";
 
 export const register_action = async (
   value: z.infer<typeof registerSchema>
