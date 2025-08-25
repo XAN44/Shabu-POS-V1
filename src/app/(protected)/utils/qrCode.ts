@@ -1,10 +1,10 @@
-import * as QRCode from "qrcode";
+import QRCode from "qrcode-generator";
 
-export const generateQRCodeDataURL = (text: string): Promise<string> => {
-  return QRCode.toDataURL(text, {
-    width: 200,
-    margin: 2,
-  });
+export const generateQRCodeDataURL = async (text: string): Promise<string> => {
+  const qr = QRCode(0, "L"); // 0 = auto type, L = error correction
+  qr.addData(text);
+  qr.make();
+  return qr.createDataURL(4); // 4 = module size
 };
 
 export const generateTableQRURL = (tableId: string) => {
