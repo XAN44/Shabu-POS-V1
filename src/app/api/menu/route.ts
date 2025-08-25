@@ -1,8 +1,6 @@
 // API
 import { NextRequest, NextResponse } from "next/server";
 import db from "../../lib/prismaClient";
-import { cloudinary } from "../../lib/cloudinary";
-import { v4 as uuidv4 } from "uuid";
 
 export async function GET() {
   const menuItems = await db.menuItem.findMany();

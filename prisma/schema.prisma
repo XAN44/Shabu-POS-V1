@@ -153,8 +153,8 @@ model Bill {
   table         Table    @relation(fields: [tableId], references: [id])
   totalAmount   Float
   paymentTime   DateTime @default(now())
-  paymentMethod String? // เช่น 'cash', 'credit_card', 'transfer'
-  orderIds      String[] // เก็บ ID ของออเดอร์ที่ถูกรวมในบิลนี้
+  paymentMethod String?
+  orderIds      String[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

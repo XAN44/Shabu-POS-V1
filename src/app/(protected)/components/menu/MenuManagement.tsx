@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Plus, Edit, Trash2, Eye, EyeOff } from "lucide-react";
 import {
@@ -24,7 +24,6 @@ import {
 
 import { MenuItem } from "@/src/app/types/Order";
 import Image from "next/image";
-import { uploadToCloudinary } from "@/src/app/utils/cloudinary-uploader";
 import { toast } from "sonner";
 
 interface MenuManagementProps {

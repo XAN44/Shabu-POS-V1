@@ -1,6 +1,5 @@
 // hooks/useImageUpload.ts (Complete version)
-import { useState, useCallback, useEffect } from "react";
-import { MenuItem } from "@prisma/client";
+import { useState, useCallback } from "react";
 
 interface UploadResult {
   url: string;

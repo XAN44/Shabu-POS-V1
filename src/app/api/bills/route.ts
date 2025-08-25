@@ -12,7 +12,6 @@ export async function GET(request: Request) {
     const startDate = url.searchParams.get("startDate");
     const endDate = url.searchParams.get("endDate");
 
-    // สร้าง where clause with proper typing
     const where: Prisma.BillWhereInput = {};
 
     if (tableId) {
@@ -89,10 +88,9 @@ export async function POST(request: Request) {
 
     // คำนวณยอดรวม
     const totalAmount = orders.reduce(
-      (sum, order) => sum + order.totalAmount,
+      (sum: number, order: (typeof orders)[number]) => sum + order.totalAmount,
       0
     );
-
     // สร้างบิล
     const bill = await db.bill.create({
       data: {
