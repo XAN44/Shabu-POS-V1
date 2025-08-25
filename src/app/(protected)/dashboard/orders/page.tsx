@@ -491,7 +491,7 @@ const OrdersDashboard: React.FC = () => {
             </div>
             <button
               onClick={() => setError(null)}
-              className="text-red-600 hover:text-red-800 underline text-sm"
+              className="text-red-600  hover:text-red-800 underline text-sm"
             >
               ปิด
             </button>

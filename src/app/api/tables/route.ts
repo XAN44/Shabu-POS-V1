@@ -1,9 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import db from "../../lib/prismaClient";
-import QRCode from "qrcode";
-
-// ลบ generateQRCodeDataURL function เพราะใช้งานไม่ได้ใน server-side
-// และใช้ QRCode library แทน
+import qrcode from "qrcode-generator";
 
 // GET /api/tables
 export async function GET() {
@@ -36,8 +33,11 @@ export async function POST(req: NextRequest) {
     const baseURL = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
     const tableURL = `${baseURL}/menu?table=${newTable.id}`;
 
-    // สร้าง QR Code เป็น Data URL ด้วย QRCode library
-    const qrCodeDataURL = await QRCode.toDataURL(tableURL);
+    // สร้าง QR Code เป็น Data URL ด้วย qrcode-generator
+    const qr = qrcode(0, "L"); // 0 = auto type, L = error correction
+    qr.addData(tableURL);
+    qr.make();
+    const qrCodeDataURL = qr.createDataURL(4); // 4 = module size
 
     // อัพเดท QR Code ลง DB
     const updatedTable = await db.table.update({
@@ -55,13 +55,13 @@ export async function POST(req: NextRequest) {
   }
 }
 
-// PATCH /api/tables/:id - แก้ไขให้รองรับ Next.js 15
+// PATCH /api/tables/:id
 export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id } = await params; // ←← เพิ่ม await params
+    const { id } = await params;
     const updates = await req.json();
 
     const updatedTable = await db.table.update({
@@ -79,13 +79,13 @@ export async function PATCH(
   }
 }
 
-// DELETE /api/tables/:id - แก้ไขให้รองรับ Next.js 15
+// DELETE /api/tables/:id
 export async function DELETE(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id } = await params; // ←← เพิ่ม await params
+    const { id } = await params;
 
     await db.table.delete({
       where: { id },
