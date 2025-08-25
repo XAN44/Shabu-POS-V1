@@ -1,0 +1,21 @@
+import { NextRequest, NextResponse } from "next/server";
+import db from "../../lib/prismaClient";
+
+export async function GET() {
+  const menuItems = await db.menuItem.findMany();
+  return NextResponse.json(menuItems);
+}
+
+export async function POST(req: NextRequest) {
+  const data = await req.json();
+  const menuItem = await db.menuItem.create({
+    data: {
+      name: data.name,
+      price: data.price,
+      category: data.category,
+      description: data.description,
+      available: data.available,
+    },
+  });
+  return NextResponse.json(menuItem);
+}

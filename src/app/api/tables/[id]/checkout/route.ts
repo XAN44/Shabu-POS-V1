@@ -1,0 +1,199 @@
+// src/app/api/tables/[id]/checkout/route.ts
+import { NextResponse } from "next/server";
+import { TableStatus } from "@prisma/client";
+import { TableStatusEvent } from "@/src/app/types/socket-event";
+import { BillCreatedEvent } from "@/src/app/types/socket";
+import db from "@/src/app/lib/prismaClient";
+
+export async function PATCH(
+  req: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    // Await params before accessing properties (Next.js 15+ requirement)
+    const resolvedParams = await params;
+    const tableId = resolvedParams.id;
+
+    console.log("Checkout attempt for table:", tableId);
+
+    // Check if there are any existing bills for orders from this table
+    const existingBills = await db.bill.findMany({
+      where: {
+        tableId: tableId,
+      },
+      select: {
+        orderIds: true,
+      },
+    });
+
+    // Get all order IDs that have already been billed
+    const billedOrderIds = new Set(
+      existingBills.flatMap((bill) => bill.orderIds)
+    );
+
+    // Find all orders for this table that haven't been billed yet
+    const ordersToBill = await db.order.findMany({
+      where: {
+        tableId: tableId,
+        status: {
+          not: "cancelled", // Only exclude cancelled orders
+        },
+        id: {
+          notIn: Array.from(billedOrderIds), // Exclude already billed orders
+        },
+      },
+      include: {
+        items: true,
+      },
+    });
+
+    if (ordersToBill.length === 0) {
+      return NextResponse.json(
+        {
+          error: "ไม่มีออเดอร์ที่ต้องเช็คบิล",
+          message:
+            "All orders for this table have already been billed or there are no orders",
+        },
+        { status: 404 }
+      );
+    }
+
+    // Calculate total amount from unbilled orders only
+    const totalAmount = ordersToBill.reduce(
+      (sum, order) => sum + order.totalAmount,
+      0
+    );
+
+    // Start transaction to ensure data consistency
+    const result = await db.$transaction(async (tx) => {
+      // Create the bill
+      const newBill = await tx.bill.create({
+        data: {
+          tableId: tableId,
+          totalAmount: totalAmount,
+          orderIds: ordersToBill.map((order) => order.id),
+          paymentMethod: "cash", // Default payment method
+        },
+      });
+
+      // Update all orders to 'served' status
+      await tx.order.updateMany({
+        where: {
+          id: {
+            in: ordersToBill.map((order) => order.id),
+          },
+        },
+        data: {
+          status: "served",
+        },
+      });
+
+      // Check if there are any remaining unbilled orders for this table
+      const remainingOrders = await tx.order.findMany({
+        where: {
+          tableId: tableId,
+          status: {
+            not: "cancelled",
+          },
+          id: {
+            notIn: [
+              ...Array.from(billedOrderIds),
+              ...ordersToBill.map((o) => o.id),
+            ],
+          },
+        },
+      });
+
+      // Only update table status to available if there are no remaining unbilled orders
+      let updatedTable = null;
+      if (remainingOrders.length === 0) {
+        updatedTable = await tx.table.update({
+          where: { id: tableId },
+          data: { status: TableStatus.available },
+          select: {
+            id: true,
+            number: true,
+            status: true,
+          },
+        });
+        console.log("Table status updated to available");
+      } else {
+        // Get current table info without updating status
+        updatedTable = await tx.table.findUnique({
+          where: { id: tableId },
+          select: {
+            id: true,
+            number: true,
+            status: true,
+          },
+        });
+      }
+
+      return { bill: newBill, table: updatedTable };
+    });
+
+    // Emit Socket.IO events if available
+    if (typeof global !== "undefined" && global.io) {
+      try {
+        // Only emit table status change if table was actually set to available
+        if (result.table?.status === TableStatus.available) {
+          const tableStatusEvent: TableStatusEvent = {
+            tableId: tableId,
+            status: "available",
+            timestamp: new Date(),
+          };
+          global.io
+            .to("dashboard")
+            .emit("tableStatusChanged", tableStatusEvent);
+        }
+
+        // Bill created event
+        const billCreatedEvent: BillCreatedEvent = {
+          billId: result.bill.id,
+          totalAmount: result.bill.totalAmount,
+        };
+        global.io.to(`table-${tableId}`).emit("billCreated", billCreatedEvent);
+
+        console.log("Socket events emitted successfully");
+      } catch (socketError) {
+        console.warn("Socket.IO emission failed:", socketError);
+        // Don't fail the entire operation if socket emission fails
+      }
+    }
+
+    return NextResponse.json({
+      success: true,
+      message: "Checkout completed successfully",
+      bill: {
+        id: result.bill.id,
+        totalAmount: result.bill.totalAmount,
+        tableId: result.bill.tableId,
+        paymentTime: result.bill.paymentTime,
+      },
+      table: result.table,
+      ordersBilled: ordersToBill.length,
+    });
+  } catch (error) {
+    console.error("Checkout failed:", error);
+
+    // Enhanced error logging
+    if (error instanceof Error) {
+      console.error("Error name:", error.name);
+      console.error("Error message:", error.message);
+      console.error("Error stack:", error.stack);
+    }
+
+    // Check for specific Prisma errors
+    if (error === "P2025") {
+      return NextResponse.json({ error: "Table not found" }, { status: 404 });
+    }
+
+    return NextResponse.json(
+      {
+        error: "Failed to process checkout",
+        details: error instanceof Error ? error.message : "Unknown error",
+      },
+      { status: 500 }
+    );
+  }
+}

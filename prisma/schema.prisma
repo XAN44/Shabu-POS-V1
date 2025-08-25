@@ -1,0 +1,177 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id            String          @id @default(cuid())
+  name          String?
+  email         String          @unique
+  role          String
+  password      String
+  emailVerified DateTime?
+  accounts      Account[]
+  sessions      Session[]
+  Authenticator Authenticator[]
+  activeSession ActiveSession?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Account {
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([provider, providerAccountId])
+}
+
+model Session {
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model VerificationToken {
+  identifier String
+  token      String
+  expires    DateTime
+
+  @@id([identifier, token])
+}
+
+model ActiveSession {
+  id           String   @id @default(cuid())
+  userId       String   @unique
+  sessionToken String   @unique
+  deviceInfo   String?
+  ipAddress    String?
+  userAgent    String?
+  createdAt    DateTime @default(now())
+  lastActivity DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("active_sessions")
+}
+
+model Authenticator {
+  credentialID         String  @unique
+  userId               String
+  providerAccountId    String
+  credentialPublicKey  String
+  counter              Int
+  credentialDeviceType String
+  credentialBackedUp   Boolean
+  transports           String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([userId, credentialID])
+}
+
+model Table {
+  id     String      @id @default(cuid())
+  number Int
+  seats  Int
+  status TableStatus
+  qrCode String?
+  orders Order[]
+  Bill   Bill[]
+
+  @@map("tables")
+}
+
+model MenuItem {
+  id          String      @id @default(cuid())
+  name        String
+  price       Float
+  category    String
+  description String?
+  image       String?
+  available   Boolean     @default(true)
+  orderItems  OrderItem[]
+
+  @@map("menu_items")
+}
+
+model Order {
+  id           String      @id @default(cuid())
+  tableId      String
+  status       OrderStatus @default(new)
+  totalAmount  Float
+  orderTime    DateTime    @default(now())
+  notes        String?
+  customerName String?
+  createdAt    DateTime    @default(now())
+  table        Table       @relation(fields: [tableId], references: [id], onDelete: Cascade)
+  items        OrderItem[]
+
+  @@map("orders")
+}
+
+model Bill {
+  id            String   @id @default(cuid())
+  tableId       String
+  table         Table    @relation(fields: [tableId], references: [id])
+  totalAmount   Float
+  paymentTime   DateTime @default(now())
+  paymentMethod String? // เช่น 'cash', 'credit_card', 'transfer'
+  orderIds      String[] // เก็บ ID ของออเดอร์ที่ถูกรวมในบิลนี้
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("bills")
+}
+
+model OrderItem {
+  id         String  @id @default(cuid())
+  orderId    String
+  menuItemId String
+  quantity   Int
+  notes      String?
+  price      Float
+
+  order    Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  menuItem MenuItem @relation(fields: [menuItemId], references: [id])
+
+  @@map("order_items")
+}
+
+enum TableStatus {
+  available
+  occupied
+  reserved
+  cleaning
+}
+
+enum OrderStatus {
+  new
+  preparing
+  ready
+  served
+  cancelled
+}
