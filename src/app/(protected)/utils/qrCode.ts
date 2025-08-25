@@ -1,7 +1,7 @@
-import QRCode from "qrcode-generator";
+import qrcode from "qrcode-generator";
 
 export const generateQRCodeDataURL = async (text: string): Promise<string> => {
-  const qr = QRCode(0, "L"); // 0 = auto type, L = error correction
+  const qr = qrcode(0, "L"); // 0 = auto type, L = error correction
   qr.addData(text);
   qr.make();
   return qr.createDataURL(4); // 4 = module size
