@@ -4,9 +4,8 @@ import next from "next";
 import { Server } from "socket.io";
 
 const dev = process.env.NODE_ENV !== "production";
-const hostname = "localhost";
-const port = 3000;
-
+const port = process.env.PORT ? parseInt(process.env.PORT) : 3000;
+const hostname = "0.0.0.0"; // ต้องเป็น 0.0.0.0 สำหรับ Render
 const app = next({ dev, hostname, port });
 const handle = app.getRequestHandler();
 
@@ -21,7 +20,7 @@ app.prepare().then(() => {
 
   io = new Server(httpServer, {
     cors: {
-      origin: "http://localhost:3000",
+      origin: process.env.CLIENT_URL || "*",
       methods: ["GET", "POST"],
     },
     transports: ["websocket", "polling"], // ✅ รองรับทั้ง websocket และ polling

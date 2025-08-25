@@ -29,11 +29,3 @@ export function SocketProvider({ children }: SocketProviderProps) {
     </SocketContext.Provider>
   );
 }
-
-export function useSocketContext(): SocketContextType {
-  const context = useContext(SocketContext);
-  if (context === undefined) {
-    throw new Error("useSocketContext must be used within a SocketProvider");
-  }
-  return context;
-}

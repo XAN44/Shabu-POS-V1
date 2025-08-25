@@ -17,13 +17,14 @@ export const useSocket = () => {
 
   const connect = useCallback(() => {
     if (!socket) {
-      const newSocket = io("http://localhost:3000", {
-        // ✅ เปลี่ยนจาก 3001 เป็น 3000
-        transports: ["websocket", "polling"],
-        autoConnect: true,
-        timeout: 5000,
-        forceNew: true,
-      });
+      const newSocket = io(
+        process.env.NEXT_PUBLIC_SOCKET_URL || window.location.origin,
+        {
+          transports: ["websocket", "polling"],
+          autoConnect: true,
+          forceNew: true,
+        }
+      );
 
       newSocket.on("connect", () => {
         console.log("✅ Connected to Socket.IO server:", newSocket.id);
