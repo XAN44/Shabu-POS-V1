@@ -1,7 +1,7 @@
 "use server";
 
 import * as z from "zod";
-import { saltAndHashPassword } from "../utils/password";
+import { saltAndHashPassword } from "../../utils/password";
 import { registerSchema } from "../schema/LoginSchema";
 import db from "../lib/prismaClient";
 

@@ -1,6 +1,6 @@
 import { NextAuthConfig } from "next-auth";
 import { loginSchema } from "./app/schema/LoginSchema";
-import { comparePassword } from "./app/utils/password";
+import { comparePassword } from "./utils/password";
 import db from "./app/lib/prismaClient";
 import Credentials from "next-auth/providers/credentials";
 
