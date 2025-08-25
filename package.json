@@ -63,7 +63,6 @@
     "@types/react-dom": "^19",
     "@types/socket.io": "^3.0.1",
     "@types/ws": "^8.18.1",
-    "autoprefixer": "^10.4.21",
     "eslint": "^9",
     "eslint-config-next": "15.4.7",
     "path": "^0.12.7",
