@@ -1,5 +1,4 @@
-// utils/qrCode.ts
-import QRCode from "qrcode";
+import * as QRCode from "qrcode";
 
 export const generateQRCodeDataURL = (text: string): Promise<string> => {
   return QRCode.toDataURL(text, {
