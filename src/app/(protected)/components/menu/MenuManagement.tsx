@@ -23,6 +23,9 @@ import {
 } from "@/components/ui/select";
 
 import { MenuItem } from "@/src/app/types/Order";
+import Image from "next/image";
+import { uploadToCloudinary } from "@/src/app/utils/cloudinary-uploader";
+import { toast } from "sonner";
 
 interface MenuManagementProps {
   menuItems: MenuItem[];
@@ -45,6 +48,7 @@ export const MenuManagement: React.FC<MenuManagementProps> = ({
   const [editingItem, setEditingItem] = useState<MenuItem | null>(null);
   const [deletingItemId, setDeletingItemId] = useState<string | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
+  const [file, setFile] = useState<File | null>(null);
 
   const [formData, setFormData] = useState({
     name: "",
@@ -52,6 +56,8 @@ export const MenuManagement: React.FC<MenuManagementProps> = ({
     category: "",
     description: "",
     available: true,
+    image: "",
+    imageKey: "",
   });
 
   const resetForm = () => {
@@ -61,23 +67,73 @@ export const MenuManagement: React.FC<MenuManagementProps> = ({
       category: "",
       description: "",
       available: true,
+      image: "",
+      imageKey: "",
     });
   };
 
-  const handleAdd = () => {
-    if (formData.name && formData.price && formData.category) {
-      onAddMenuItem({
-        name: formData.name,
-        price: parseFloat(formData.price),
-        category: formData.category,
-        description: formData.description || undefined,
-        available: formData.available,
-      });
-      resetForm();
-      setShowAddDialog(false);
+  const handleFileChange = (selectedFile: File | null) => {
+    setFile(selectedFile);
+    if (selectedFile) {
+      const objectUrl = URL.createObjectURL(selectedFile);
+      setFormData((prev) => ({ ...prev, image: objectUrl }));
+    } else {
+      setFormData((prev) => ({ ...prev, image: "" }));
     }
   };
 
+  const handleAdd = async () => {
+    if (!formData.name || !formData.price || !formData.category) {
+      toast.error("กรุณากรอกข้อมูลให้ครบถ้วน");
+      return;
+    }
+
+    let imageUrl = formData.image;
+    let imageKey = formData.imageKey;
+
+    // ตรวจสอบว่ามีไฟล์ที่ผู้ใช้เลือกมาหรือไม่
+    if (file) {
+      try {
+        const uploadFormData = new FormData();
+        uploadFormData.append("file", file);
+
+        // 1. ส่งไฟล์ไปยัง API Route ที่สร้างขึ้น (/api/upload)
+        const response = await fetch("/api/upload", {
+          method: "POST",
+          body: uploadFormData,
+        });
+
+        if (!response.ok) {
+          throw new Error("Failed to upload image via API");
+        }
+
+        // 2. รับผลลัพธ์จาก API Route (secure_url และ public_id)
+        const uploadResult = await response.json();
+        imageUrl = uploadResult.data.secure_url;
+        imageKey = uploadResult.data.public_id;
+      } catch (error) {
+        console.error("Failed to upload image:", error);
+        toast.error("ไม่สามารถอัปโหลดรูปภาพได้");
+        return;
+      }
+    }
+
+    // ส่งข้อมูลทั้งหมด รวมถึง imageUrl และ imageKey ไปบันทึกในฐานข้อมูล
+    onAddMenuItem({
+      name: formData.name,
+      price: parseFloat(formData.price),
+      category: formData.category,
+      description: formData.description || undefined,
+      available: formData.available,
+      image: imageUrl,
+      imageKey: imageKey,
+    });
+
+    // รีเซ็ตฟอร์มและปิด dialog
+    resetForm();
+    setFile(null); // เคลียร์ State ไฟล์ที่เก็บไว้
+    setShowAddDialog(false);
+  };
   const handleEdit = (item: MenuItem) => {
     setEditingItem(item);
     setFormData({
@@ -86,20 +142,26 @@ export const MenuManagement: React.FC<MenuManagementProps> = ({
       category: item.category,
       description: item.description || "",
       available: item.available,
+      image: item.image || "",
+      imageKey: item.imageKey || "",
     });
     setShowEditDialog(true);
   };
 
-  const handleSaveEdit = () => {
-    if (editingItem && formData.name && formData.price && formData.category) {
+  const handleSaveEdit = async () => {
+    if (editingItem) {
       onEditMenuItem(editingItem.id, {
         name: formData.name,
         price: parseFloat(formData.price),
         category: formData.category,
         description: formData.description || undefined,
         available: formData.available,
+        image: formData.image, // URL preview ชั่วคราว
+        imageKey: formData.imageKey,
       });
+
       resetForm();
+      setFile(null);
       setEditingItem(null);
       setShowEditDialog(false);
     }
@@ -186,58 +248,89 @@ export const MenuManagement: React.FC<MenuManagementProps> = ({
       </div>
 
       {/* Menu Items Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {filteredItems.map((item) => (
-          <Card key={item.id} className={!item.available ? "opacity-60" : ""}>
-            <CardHeader className="pb-3">
+          <Card
+            key={item.id}
+            className={`relative overflow-hidden transition-all duration-300 hover:shadow-lg ${
+              !item.available ? "opacity-60 grayscale" : ""
+            }`}
+          >
+            {/* Image Section */}
+            <div className="relative h-48 sm:h-56 w-full">
+              {item.image ? (
+                <Image
+                  src={item.image}
+                  alt={item.name}
+                  layout="fill"
+                  objectFit="cover"
+                  className="transition-transform duration-300 hover:scale-105"
+                />
+              ) : (
+                <div className="w-full h-full bg-gray-200 flex items-center justify-center text-gray-500 text-sm">
+                  ไม่มีภาพประกอบ
+                </div>
+              )}
+              <Badge
+                className={`absolute top-2 left-2 text-sm font-semibold z-10 ${
+                  item.available ? "bg-green-600" : "bg-red-600"
+                }`}
+              >
+                {item.available ? "พร้อมขาย" : "หมด"}
+              </Badge>
+              <Badge
+                variant="secondary"
+                className="absolute top-2 right-2 text-sm font-semibold z-10"
+              >
+                {item.category}
+              </Badge>
+            </div>
+
+            {/* Content Section */}
+            <CardContent className="p-4 space-y-3">
               <div className="flex justify-between items-start">
-                <CardTitle className="text-lg">{item.name}</CardTitle>
-                <div className="flex gap-1">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => toggleAvailability(item.id, !item.available)}
-                  >
-                    {item.available ? (
-                      <Eye className="w-4 h-4 text-green-600" />
-                    ) : (
-                      <EyeOff className="w-4 h-4 text-red-600" />
-                    )}
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => handleEdit(item)}
-                  >
-                    <Edit className="w-4 h-4" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => handleDelete(item.id)}
-                  >
-                    <Trash2 className="w-4 h-4 text-red-600" />
-                  </Button>
-                </div>
+                <CardTitle className="text-xl font-bold">{item.name}</CardTitle>
+                <span className="text-2xl font-extrabold text-blue-600">
+                  ฿{item.price.toLocaleString()}
+                </span>
               </div>
-            </CardHeader>
 
-            <CardContent>
-              <div className="space-y-2">
-                <div className="flex justify-between items-center">
-                  <Badge variant="secondary">{item.category}</Badge>
-                  <span className="text-lg font-bold">฿{item.price}</span>
-                </div>
+              {item.description && (
+                <p className="text-sm text-gray-600 line-clamp-2">
+                  {item.description}
+                </p>
+              )}
 
-                {item.description && (
-                  <p className="text-sm text-gray-600">{item.description}</p>
-                )}
-
-                <Badge
-                  className={item.available ? "bg-green-500" : "bg-red-500"}
+              {/* Action Buttons */}
+              <div className="flex justify-end gap-2 pt-2 border-t mt-4 -mx-4 px-4">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => toggleAvailability(item.id, !item.available)}
+                  title={item.available ? "ซ่อนเมนู" : "แสดงเมนู"}
                 >
-                  {item.available ? "พร้อมขาย" : "หมด"}
-                </Badge>
+                  {item.available ? (
+                    <Eye className="w-5 h-5 text-green-600" />
+                  ) : (
+                    <EyeOff className="w-5 h-5 text-red-600" />
+                  )}
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => handleEdit(item)}
+                  title="แก้ไข"
+                >
+                  <Edit className="w-5 h-5" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => handleDelete(item.id)}
+                  title="ลบ"
+                >
+                  <Trash2 className="w-5 h-5 text-red-600" />
+                </Button>
               </div>
             </CardContent>
           </Card>
@@ -252,7 +345,24 @@ export const MenuManagement: React.FC<MenuManagementProps> = ({
             <DialogDescription>กรอกข้อมูลเมนูใหม่</DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
+            {file && (
+              <Image
+                width={1033}
+                height={1033}
+                src={URL.createObjectURL(file)}
+                alt="Preview"
+                className="w-full h-96  object-fill rounded"
+              />
+            )}
+
             <div className="grid gap-2">
+              <Label htmlFor="file">รูปเมนู (ไม่จำเป็น)</Label>
+              <Input
+                id=""
+                type="file"
+                accept="image/*"
+                onChange={(e) => handleFileChange(e.target.files?.[0] || null)}
+              />
               <Label htmlFor="name">ชื่อเมนู</Label>
               <Input
                 id="name"

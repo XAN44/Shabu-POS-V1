@@ -1,16 +1,46 @@
-// app/page.tsx
+"use client";
+import { useState } from "react";
 
-import { SocketTest } from "./components/testSocket";
+export default function HomePage() {
+  const [file, setFile] = useState<File | null>(null);
+  const [url, setUrl] = useState<string | null>(null);
 
-export default function Home() {
+  const handleUpload = async () => {
+    if (!file) return;
+
+    const formData = new FormData();
+    formData.append("file", file);
+
+    const res = await fetch("/api/upload", {
+      method: "POST",
+      body: formData,
+    });
+
+    const data = await res.json();
+    if (data.success) {
+      setUrl(data.data.secure_url);
+    }
+  };
+
   return (
-    <main className="min-h-screen bg-gray-100 py-8">
-      <div className="container mx-auto">
-        <h1 className="text-3xl font-bold text-center mb-8">
-          Socket.IO Connection Test
-        </h1>
-        <SocketTest />
-      </div>
-    </main>
+    <div className="p-6">
+      <input
+        type="file"
+        onChange={(e) => setFile(e.target.files?.[0] || null)}
+      />
+      <button
+        onClick={handleUpload}
+        className="bg-blue-500 text-white px-4 py-2 rounded"
+      >
+        Upload
+      </button>
+
+      {url && (
+        <div className="mt-4">
+          <p>Uploaded:</p>
+          <img src={url} alt="Uploaded" className="w-64" />
+        </div>
+      )}
+    </div>
   );
 }

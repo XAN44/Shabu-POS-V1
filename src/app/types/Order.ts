@@ -5,7 +5,20 @@ export interface MenuItem {
   category: string;
   description?: string;
   image?: string;
+  imageKey?: string;
   available: boolean;
+}
+
+export interface UploadedFile {
+  id: string;
+  key: string; // Cloudinary key
+  url: string; // Cloudinary URL
+  name: string; // Original filename
+  size: number; // File size in bytes
+  type: string; // MIME type
+  uploadedBy?: string; // User ID
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 export interface OrderItem {

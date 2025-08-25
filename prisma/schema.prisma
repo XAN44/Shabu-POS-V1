@@ -110,7 +110,8 @@ model MenuItem {
   price       Float
   category    String
   description String?
-  image       String?
+  image       String? // URL ของภาพจาก UploadThing
+  imageKey    String? // Key ของไฟล์ใน UploadThing สำหรับการลบ
   available   Boolean     @default(true)
   orderItems  OrderItem[]
 
@@ -130,6 +131,20 @@ model Order {
   items        OrderItem[]
 
   @@map("orders")
+}
+
+model UploadedFile {
+  id         String   @id @default(cuid())
+  key        String   @unique // Key ของไฟล์ใน UploadThing
+  url        String // URL ของไฟล์
+  name       String // ชื่อไฟล์เดิม
+  size       Int // ขนาดไฟล์ในไบต์
+  type       String // MIME type
+  uploadedBy String? // User ID ของผู้อัปโหลด (optional)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@map("uploaded_files")
 }
 
 model Bill {

@@ -5,13 +5,15 @@ import { Server } from "socket.io";
 
 const dev = process.env.NODE_ENV !== "production";
 const port = process.env.PORT ? parseInt(process.env.PORT) : 3000;
-const hostname = "0.0.0.0"; // ต้องเป็น 0.0.0.0 สำหรับ Render
+const hostname = dev ? "localhost" : "0.0.0.0";
 const app = next({ dev, hostname, port });
 const handle = app.getRequestHandler();
 
-// Global variable to store socket server
 let io;
 
+if (global.io) {
+  global.io.emit("menu:updated", menuItem);
+}
 app.prepare().then(() => {
   const httpServer = createServer(async (req, res) => {
     const parsedUrl = parse(req.url, true);

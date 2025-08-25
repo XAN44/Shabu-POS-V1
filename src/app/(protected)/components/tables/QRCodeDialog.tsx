@@ -1,4 +1,5 @@
-import React from "react";
+"use client";
+import React, { useEffect, useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -24,12 +25,18 @@ export const QRCodeDialog: React.FC<QRCodeDialogProps> = ({
   open,
   onClose,
 }) => {
+  const [qrDataURL, setQrDataURL] = useState("");
+
+  useEffect(() => {
+    if (table) {
+      const url = generateTableQRURL(table.id);
+      generateQRCodeDataURL(url).then(setQrDataURL);
+    }
+  }, [table]);
+
   if (!table) return null;
 
   const downloadQRCode = () => {
-    const url = generateTableQRURL(table.id);
-    const qrDataURL = generateQRCodeDataURL(url);
-
     const link = document.createElement("a");
     link.download = `table-${table.number}-qr.png`;
     link.href = qrDataURL;
@@ -50,12 +57,16 @@ export const QRCodeDialog: React.FC<QRCodeDialogProps> = ({
 
         <div className="flex flex-col items-center space-y-4 py-4">
           <div className="p-4 bg-white border-2 border-gray-200 rounded-lg">
-            <Image
-              fill
-              src={generateQRCodeDataURL(generateTableQRURL(table.id))}
-              alt={`QR Code for Table ${table.number}`}
-              className="w-48 h-48"
-            />
+            {qrDataURL && (
+              <Image
+                src={qrDataURL}
+                alt={`QR Code for Table ${table.number}`}
+                width={200}
+                height={200}
+                unoptimized
+                className="object-cover"
+              />
+            )}
           </div>
           <div className="text-center space-y-2">
             <div className="font-semibold">โต๊ะ {table.number}</div>
@@ -70,11 +81,19 @@ export const QRCodeDialog: React.FC<QRCodeDialogProps> = ({
           </div>
         </div>
 
-        <DialogFooter className="flex justify-between">
-          <Button variant="outline" onClick={onClose}>
+        <DialogFooter className="flex flex-col sm:flex-row sm:justify-between gap-2">
+          <Button
+            variant="outline"
+            onClick={onClose}
+            className="w-full sm:w-auto"
+          >
             ปิด
           </Button>
-          <Button onClick={downloadQRCode}>
+          <Button
+            onClick={downloadQRCode}
+            disabled={!qrDataURL}
+            className="w-full sm:w-auto"
+          >
             <Download className="w-4 h-4 mr-2" />
             ดาวน์โหลด QR Code
           </Button>

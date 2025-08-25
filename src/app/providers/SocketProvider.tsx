@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useContext, ReactNode } from "react";
+import React, { createContext, ReactNode } from "react";
 import type { Socket } from "socket.io-client";
 import { ClientToServerEvents, ServerToClientEvents } from "../types/socket";
 import { useSocket } from "@/src/hooks/useSocket";
@@ -18,6 +18,13 @@ const SocketContext = createContext<SocketContextType | undefined>(undefined);
 
 interface SocketProviderProps {
   children: ReactNode;
+}
+export function useSocketContext() {
+  const context = React.useContext(SocketContext);
+  if (!context) {
+    throw new Error("useSocketContext must be used within a SocketProvider");
+  }
+  return context;
 }
 
 export function SocketProvider({ children }: SocketProviderProps) {
