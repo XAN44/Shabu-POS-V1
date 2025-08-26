@@ -18,7 +18,6 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // ตรวจสอบว่าโต๊ะมีอยู่จริง
     const table = await db.table.findUnique({
       where: { id: tableId },
     });
