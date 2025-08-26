@@ -8,6 +8,7 @@ interface BillModalProps {
   isOpen: boolean;
   billSummary: BillSummary | null;
   tableId: string | null;
+  tableName: string;
 
   onClose: () => void;
 }
@@ -25,6 +26,7 @@ export const BillModal: React.FC<BillModalProps> = ({
   isOpen,
   billSummary,
   tableId,
+  tableName,
   onClose,
 }) => {
   if (!isOpen || !billSummary) return null;
@@ -41,7 +43,7 @@ export const BillModal: React.FC<BillModalProps> = ({
               </div>
               <div>
                 <h2 className="text-2xl font-bold">บิลค่าอาหาร</h2>
-                <p className="text-green-100">โต๊ะ {tableId}</p>
+                <p className="text-green-100"> {tableName}</p>
               </div>
             </div>
             <button

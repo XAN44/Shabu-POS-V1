@@ -245,6 +245,13 @@ app.prepare().then(() => {
     socket.on("connect_error", (error) => {
       console.error(`🚨 Connection error for ${socket.id}:`, error);
     });
+
+    socket.on("joinTable", (tableId) => {
+      socket.join(tableId);
+    });
+    socket.on("joinDashboard", () => {
+      socket.join("dashboard");
+    });
   });
 
   // ✅ Store io globally for API routes

@@ -33,13 +33,14 @@ import { CheckoutButton } from "../../components/tables/CheckoutButton";
 import { BillOverview } from "../../components/bills/BillOverview";
 import { toast } from "sonner";
 import { useSocketContext } from "@/src/app/providers/SocketProvider";
+
+import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import {
   NewOrderEvent,
-  statusMessages,
   parseOrderStatus,
   parseTableStatus,
-} from "@/src/app/types/socket-event";
-import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
+  statusMessages,
+} from "@/src/app/types/socket";
 
 // Constants
 const API_ENDPOINTS = {
@@ -323,8 +324,6 @@ const OrdersDashboard: React.FC = () => {
   // ✅ Single useEffect for socket events
   useEffect(() => {
     if (!socket || !isConnected) return;
-
-    console.log("Setting up socket listeners...");
 
     socket.emit("joinDashboard");
 

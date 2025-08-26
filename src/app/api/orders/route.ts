@@ -5,7 +5,7 @@ import {
   OrderInput,
   OrderStatusEvent,
   TableStatusEvent,
-} from "../../types/socket-event";
+} from "../../types/socket";
 
 export async function GET() {
   try {

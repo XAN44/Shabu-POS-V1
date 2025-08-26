@@ -1,7 +1,100 @@
-// types/socket.ts - Updated with proper typing
+// types/socket.ts
+import { Order, OrderStatus, TableStatus } from "@prisma/client";
 
-import { Order } from "@prisma/client";
+/* -------------------- Event Payload Types -------------------- */
+export interface NewOrderEvent {
+  orderId: string;
+  tableId: string;
+  tableName: string;
+  totalAmount: number;
+  itemsCount: number;
+  customerName?: string;
+  timestamp: Date;
+}
 
+export interface BillCreatedEvent {
+  billId: string;
+  totalAmount: number;
+}
+
+export interface OrderStatusEvent {
+  orderId: string;
+  status: OrderStatus;
+  tableId: string;
+  timestamp: Date;
+}
+
+export interface TableStatusEvent {
+  tableId: string;
+  status: TableStatus;
+  timestamp: Date;
+}
+
+export interface OrderStatusUpdateEvent {
+  orderId: string;
+  status: OrderStatus;
+  tableId: string;
+}
+
+/* -------------------- Order Input Types -------------------- */
+export interface OrderItemInput {
+  menuItemId: string;
+  quantity: number;
+  option?: string;
+  notes?: string;
+}
+
+export interface OrderInput {
+  tableId: string;
+  notes?: string;
+  items: OrderItemInput[];
+  customerName?: string;
+}
+
+export interface UpdateOrderInput {
+  status?: OrderStatus;
+  notes?: string;
+}
+
+/* -------------------- Status Mapping & Helpers -------------------- */
+export type StatusMessages = {
+  [K in OrderStatus]: string;
+};
+
+export const statusMessages: StatusMessages = {
+  new: "ออเดอร์ใหม่",
+  preparing: "กำลังเตรียม",
+  ready: "พร้อมเสิร์ฟ",
+  served: "เสิร์ฟแล้ว",
+  cancelled: "ยกเลิกแล้ว",
+};
+
+export function parseOrderStatus(status: string): OrderStatus {
+  const validStatuses: OrderStatus[] = [
+    "new",
+    "preparing",
+    "ready",
+    "served",
+    "cancelled",
+  ];
+  return validStatuses.includes(status as OrderStatus)
+    ? (status as OrderStatus)
+    : "new";
+}
+
+export function parseTableStatus(status: string): TableStatus {
+  const validStatuses: TableStatus[] = [
+    "available",
+    "occupied",
+    "reserved",
+    "cleaning",
+  ];
+  return validStatuses.includes(status as TableStatus)
+    ? (status as TableStatus)
+    : "available";
+}
+
+/* -------------------- Socket.IO Mapping Types -------------------- */
 export interface ServerToClientEvents {
   hello: (data: string) => void;
   pong: (data: string) => void;
@@ -10,23 +103,13 @@ export interface ServerToClientEvents {
     clientsCount: number;
   }) => void;
 
-  newOrder: (data: {
-    orderId: string;
-    tableId: string;
-    tableName: string; // Make this required
-    totalAmount: number;
-    itemsCount: number;
-    customerName?: string;
-    timestamp: Date;
-  }) => void;
-
+  newOrder: (data: NewOrderEvent) => void;
   orderStatusChanged: (data: {
     orderId: string;
     status: string;
     tableId: string;
     timestamp: Date;
   }) => void;
-
   orderStatusUpdated: (data: {
     orderId: string;
     status: string;
@@ -39,23 +122,21 @@ export interface ServerToClientEvents {
     status: string;
     timestamp: Date;
   }) => void;
-
   tableOrdersUpdate: (data: {
     tableId: string;
     message: string;
     orders?: Order;
   }) => void;
 
-  billCreated: (data: { billId: string; totalAmount: number }) => void;
+  billCreated: (data: BillCreatedEvent) => void;
 
-  // Fixed tableCheckedOut event type
   tableCheckedOut: (data: {
     tableId: string;
     totalAmount: number;
     orders: Order[];
     number: string;
-    tableName: string; // Make this required
-    timestamp: string; // Add timestamp for deduplication
+    tableName: string;
+    timestamp: string;
   }) => void;
 
   checkoutConfirmed: (data: {
@@ -63,7 +144,6 @@ export interface ServerToClientEvents {
     message: string;
     timestamp: Date;
   }) => void;
-
   ordersUpdated: (orders: Order[]) => void;
 }
 
@@ -71,7 +151,6 @@ export interface ClientToServerEvents {
   hello: (data: string) => void;
   ping: () => void;
 
-  // Room management
   joinTable: (tableId: string) => void;
   leaveTable: (tableId: string) => void;
   joinDashboard: () => void;
@@ -83,27 +162,33 @@ export interface ClientToServerEvents {
     tableId: string;
     timestamp: Date;
   }) => void;
-
-  // Order management
   orderStatusUpdate: (data: {
     orderId: string;
     status: string;
     tableId: string;
   }) => void;
 
-  // Fixed checkoutTable event type
   checkoutTable: (data: {
     tableId: string;
     totalAmount: number;
     orders: Order[];
     number: string;
-    tableName: string; // Make this required
-    timestamp: string; // Add timestamp for deduplication
+    tableName: string;
+    timestamp: string;
   }) => void;
 }
 
+/* -------------------- InterServerEvents -------------------- */
+export interface InterServerEvents {
+  ping: () => void;
+  syncNewOrder?: (data: NewOrderEvent) => void;
+  syncOrderStatus?: (data: OrderStatusEvent) => void;
+}
+
+/* -------------------- Socket Data -------------------- */
 export interface SocketData {
   userId?: string;
-  tableId: string;
+  username?: string;
+  tableId?: string;
   role?: "customer" | "dashboard";
 }

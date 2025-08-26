@@ -23,6 +23,7 @@ import { BillModal } from "../components/bill/BillModal";
 import { OrderStatus } from "@prisma/client";
 import { OrderStatusComponents } from "../components/order/orderStatus";
 import { useDraftCart, useTableData } from "@/src/hooks/useDraftCart";
+import { CheckoutConfirmationDialog } from "../components/confirmToCheckout";
 
 // Create a type that matches what ItemModal expects
 type ModalMenuItem = {
@@ -39,6 +40,7 @@ type ModalMenuItem = {
 function MenuContent() {
   const searchParams = useSearchParams();
   const tableId = searchParams.get("table");
+  const [isCheckingOut, setIsCheckingOut] = useState(false);
 
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
   const [selectedItem, setSelectedItem] = useState<ModalMenuItem | null>(null);
@@ -47,6 +49,13 @@ function MenuContent() {
   const [submittedOrder, setSubmittedOrder] = useState(false);
   const [showBillModal, setShowBillModal] = useState(false);
   const [billSummary, setBillSummary] = useState<BillSummary | null>(null);
+  const [showCheckoutDialog, setShowCheckoutDialog] = useState(false);
+  const [checkoutData, setCheckoutData] = useState<{
+    totalAmount: number;
+    orderCount: number;
+    tableNumber: string;
+    numberTable: string;
+  } | null>(null);
 
   const tableValid = useTableValidation(tableId);
   const { menuItems, fetchLoading } = useMenuData(tableValid);
@@ -204,45 +213,109 @@ function MenuContent() {
   };
 
   const tableData = useTableData(tableId);
-  const numberTable = tableData?.number || ""; // โหลดเลขโต๊ะจาก hook
+  const numberTable = tableData?.number || "";
   const tableName = numberTable ? `โต๊ะ ${numberTable}` : "ไม่ระบุ";
 
-  const handleCheckout = async () => {
-    if (!socket || !isConnected || !billSummary || !tableId) return;
+  const handleQuickCheckout = async () => {
+    if (!socket || !isConnected || !tableId) return;
 
-    const mappedOrders = billSummary.orders.map((order) => ({
-      tableId,
-      totalAmount: order.totalAmount,
-      id: order.id,
-      status: order.status as OrderStatus,
-      orderTime: order.orderTime,
-      notes: null,
-      customerName: null,
-      createdAt: new Date(),
-    }));
+    // สร้างข้อมูลบิลทันที
+    const summary = prepareBillSummary();
+    if (!summary || summary.orders.length === 0) {
+      toast.error("ไม่มีออเดอร์ที่สามารถเช็คเอาท์ได้");
+      return;
+    }
 
-    socket.emit("checkoutTable", {
-      tableId,
-      totalAmount: billSummary.totalAmount,
-      orders: mappedOrders,
-      number: numberTable,
-      tableName: tableName,
-      timestamp: new Date().toISOString(),
+    // เตรียมข้อมูลสำหรับ dialog
+    setCheckoutData({
+      totalAmount: summary.totalAmount,
+      orderCount: summary.orders.length,
+      tableNumber: numberTable,
+      numberTable: tableName,
     });
 
-    await fetch(`/api/tables/${tableId}/checkout`, {
-      method: "PATCH",
-    });
+    // แสดง dialog
+    setShowCheckoutDialog(true);
+  };
 
-    toast.success(`เช็คเอาท์สำเร็จ`, {
-      description: `ยอดรวมทั้งหมด ฿${billSummary.totalAmount.toLocaleString()}`,
-    });
+  // ฟังก์ชันยืนยันการเช็คเอาท์
+  const handleConfirmCheckout = async () => {
+    if (!socket || !isConnected || !tableId || !checkoutData) return;
 
-    const checkedOutOrderIds = billSummary.orders.map((order) => order.id);
-    removeOrdersById(checkedOutOrderIds);
-    clearDraftCart();
-    setShowBillModal(false);
-    setBillSummary(null);
+    try {
+      setIsCheckingOut(true);
+
+      // สร้างข้อมูลบิลอีกครั้ง (เพื่อความปลอดภัย)
+      const summary = prepareBillSummary();
+      if (!summary || summary.orders.length === 0) {
+        toast.error("เกิดข้อผิดพลาด: ไม่พบข้อมูลออเดอร์");
+        return;
+      }
+
+      // ดำเนินการเช็คเอาท์
+      const mappedOrders = summary.orders.map((order) => ({
+        tableId,
+        totalAmount: order.totalAmount,
+        id: order.id,
+        status: order.status as OrderStatus,
+        orderTime: order.orderTime,
+        notes: null,
+        customerName: null,
+        createdAt: new Date(),
+      }));
+
+      // ส่งข้อมูลผ่าน socket
+      socket.emit("checkoutTable", {
+        tableId,
+        totalAmount: summary.totalAmount,
+        orders: mappedOrders,
+        number: numberTable,
+        tableName: tableName,
+        timestamp: new Date().toISOString(),
+      });
+
+      // อัปเดต API
+      await fetch(`/api/tables/${tableId}/checkout`, {
+        method: "PATCH",
+      });
+
+      // ทำความสะอาดข้อมูล
+      const checkedOutOrderIds = summary.orders.map((order) => order.id);
+      removeOrdersById(checkedOutOrderIds);
+      clearDraftCart();
+      setShowBillModal(false);
+      setBillSummary(null);
+
+      // ปิด dialog
+      setShowCheckoutDialog(false);
+      setCheckoutData(null);
+
+      // แสดงผลสำเร็จ
+      toast.success(`เช็คเอาท์สำเร็จ! 🎉`, {
+        description: `โต๊ะ ${numberTable} - ยอดรวม ฿${summary.totalAmount.toLocaleString()}`,
+        duration: 5000,
+      });
+    } catch (error) {
+      console.error("Checkout error:", error);
+      toast.error("เกิดข้อผิดพลาดในการเช็คเอาท์");
+    } finally {
+      setIsCheckingOut(false);
+    }
+  };
+
+  // ฟังก์ชันปิด dialog
+  const handleCloseCheckoutDialog = () => {
+    if (isCheckingOut) return; // ป้องกันการปิดขณะกำลังประมวลผล
+    setShowCheckoutDialog(false);
+    setCheckoutData(null);
+  };
+
+  const handlePreviewBill = () => {
+    const summary = prepareBillSummary();
+    if (summary) {
+      setBillSummary(summary);
+      setShowBillModal(true);
+    }
   };
 
   // Computed values
@@ -309,15 +382,28 @@ function MenuContent() {
       <div className="container mx-auto px-4 py-6 space-y-6 max-w-6xl">
         {/* Header */}
         <MenuHeader
-          numberTable={numberTable || ""}
+          numberTable={tableName}
           hasServedOrders={hasServedOrders}
           servedOrdersCount={servedOrders.length}
           cartLength={cart.length}
           isConnected={isConnected}
-          onShowBill={handleShowBill}
-          onCheckout={handleCheckout}
+          onShowBill={handleShowBill} // บิลแบบเต็ม
+          onQuickCheckout={handleQuickCheckout} // เช็คเอาท์แบบรวดเร็ว
+          onPreviewBill={handlePreviewBill} // ดูตัวอย่างบิล
+          isCheckingOut={isCheckingOut} // สถานะการเช็คเอาท์
         />
-
+        {checkoutData && (
+          <CheckoutConfirmationDialog
+            isOpen={showCheckoutDialog}
+            onClose={handleCloseCheckoutDialog}
+            onConfirm={handleConfirmCheckout}
+            tableNumber={checkoutData.tableNumber}
+            numberTable={checkoutData.tableNumber}
+            orderCount={checkoutData.orderCount}
+            totalAmount={checkoutData.totalAmount}
+            isProcessing={isCheckingOut}
+          />
+        )}
         {/* Success Message */}
         {submittedOrder && (
           <div className="bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-2xl p-6 flex items-center shadow-lg">
@@ -335,6 +421,7 @@ function MenuContent() {
 
         {/* Modals */}
         <BillModal
+          tableName={tableName}
           isOpen={showBillModal}
           billSummary={billSummary}
           tableId={tableId}
