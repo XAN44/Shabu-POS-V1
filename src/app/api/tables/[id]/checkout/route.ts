@@ -1,11 +1,9 @@
 // src/app/api/tables/[id]/checkout/route.ts
 import { NextResponse } from "next/server";
 import { TableStatus } from "@prisma/client";
-import {
-  BillCreatedEvent,
-  TableStatusEvent,
-} from "@/src/app/types/socket-event";
+
 import db from "@/src/app/lib/prismaClient";
+import { BillCreatedEvent, TableStatusEvent } from "@/src/app/types/socket";
 
 export async function PATCH(
   req: Request,

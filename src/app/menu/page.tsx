@@ -1,12 +1,18 @@
-// app/menu/page.tsx
+// app/menu/page.tsx - Fixed version with proper types
 "use client";
 
-import { useState, useCallback, Suspense, useMemo } from "react";
+import { useState, useCallback, Suspense, useMemo, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 import { CheckCircle, ImageIcon, X } from "lucide-react";
 import { toast } from "sonner";
 import { MenuItem } from "../types/Order";
 import { BillSummary, CartItem } from "../types/menu";
+import {
+  StaffCalledEvent,
+  StaffResponseEvent,
+  ServerToClientEvents,
+  ClientToServerEvents,
+} from "../types/socket"; // Import proper types
 import {
   useMenuData,
   useOrdersData,
@@ -24,6 +30,7 @@ import { OrderStatus } from "@prisma/client";
 import { OrderStatusComponents } from "../components/order/orderStatus";
 import { useDraftCart, useTableData } from "@/src/hooks/useDraftCart";
 import { CheckoutConfirmationDialog } from "../components/confirmToCheckout";
+import { Socket } from "socket.io-client";
 
 // Create a type that matches what ItemModal expects
 type ModalMenuItem = {
@@ -36,6 +43,24 @@ type ModalMenuItem = {
   imageKey: string | null;
   available: boolean;
 };
+
+// Interface for staff response data - properly typed
+interface StaffResponseData {
+  tableId: string;
+  message: string;
+  staffId?: string;
+  eta?: string;
+  timestamp: string;
+  staffConfirmed?: boolean;
+  status?: string;
+}
+
+// Extend window for timeout management
+declare global {
+  interface Window {
+    staffCallTimeout?: NodeJS.Timeout;
+  }
+}
 
 function MenuContent() {
   const searchParams = useSearchParams();
@@ -56,6 +81,9 @@ function MenuContent() {
     tableNumber: string;
     numberTable: string;
   } | null>(null);
+
+  // State for staff call confirmation
+  const [staffCallPending, setStaffCallPending] = useState(false);
 
   const tableValid = useTableValidation(tableId);
   const { menuItems, fetchLoading } = useMenuData(tableValid);
@@ -78,6 +106,179 @@ function MenuContent() {
     fetchOrders,
     updateOrderStatus,
   });
+
+  // Enhanced Staff response handling useEffect with proper typing
+  useEffect(() => {
+    if (!socket || !isConnected || !tableId) {
+      console.log("Socket not ready:", {
+        socket: !!socket,
+        isConnected,
+        tableId,
+      });
+      return;
+    }
+
+    console.log("Setting up staff response listeners for table:", tableId);
+
+    // Type-safe socket instance
+    const typedSocket = socket as Socket<
+      ServerToClientEvents,
+      ClientToServerEvents
+    >;
+
+    // Enhanced staff response handlers with proper typing
+    const handleStaffCalled = (data: StaffCalledEvent) => {
+      console.log("✅ [CUSTOMER] Staff called confirmation received:", data);
+
+      if (data.tableId === tableId) {
+        console.log(
+          "✅ [CUSTOMER] Confirmation is for this table, clearing states"
+        );
+
+        setIsCheckingOut(false);
+        setStaffCallPending(false);
+
+        // Clear timeout if exists
+        if (window.staffCallTimeout) {
+          clearTimeout(window.staffCallTimeout);
+          window.staffCallTimeout = undefined;
+        }
+
+        toast.success("พนักงานได้รับแจ้งแล้ว! 👨‍💼", {
+          description: data.message || "พนักงานกำลังมาที่โต๊ะ",
+          duration: 5000,
+          className: "border-green-200 bg-green-50",
+          action: {
+            label: "ตกลง",
+            onClick: () => {},
+          },
+        });
+      } else {
+        console.log(
+          "❌ [CUSTOMER] Confirmation for different table:",
+          data.tableId
+        );
+      }
+    };
+
+    const handleStaffResponse = (data: StaffResponseData) => {
+      console.log("👥 [CUSTOMER] Staff response received:", data);
+
+      if (data.tableId === tableId) {
+        console.log("✅ [CUSTOMER] Staff response is for this table");
+
+        setIsCheckingOut(false);
+        setStaffCallPending(false);
+
+        // Clear timeout if exists
+        if (window.staffCallTimeout) {
+          clearTimeout(window.staffCallTimeout);
+          window.staffCallTimeout = undefined;
+        }
+
+        toast.success("พนักงานตอบรับแล้ว! ✅", {
+          description: data.message || "พนักงานกำลังมาที่โต๊ะ",
+          duration: 5000,
+          className: "border-green-200 bg-green-50",
+        });
+      }
+    };
+
+    const handleStaffResponseConfirmed = (data: {
+      tableId: string;
+      timestamp: string;
+    }) => {
+      console.log("✅ [CUSTOMER] Staff response confirmed:", data);
+
+      if (data.tableId === tableId) {
+        console.log("✅ [CUSTOMER] Response confirmation is for this table");
+
+        setIsCheckingOut(false);
+        setStaffCallPending(false);
+
+        // Clear timeout if exists
+        if (window.staffCallTimeout) {
+          clearTimeout(window.staffCallTimeout);
+          window.staffCallTimeout = undefined;
+        }
+
+        toast.success("พนักงานตอบรับแล้ว! 🎉", {
+          description: "พนักงานกำลังมาที่โต๊ะ",
+          duration: 3000,
+          className: "border-green-200 bg-green-50",
+        });
+      }
+    };
+
+    // Generic handler with proper typing
+    const handleGenericStaffResponse = (data: StaffResponseData) => {
+      console.log("🔄 [CUSTOMER] Generic staff response:", data);
+
+      if (data?.tableId === tableId) {
+        setIsCheckingOut(false);
+        setStaffCallPending(false);
+
+        // Clear timeout if exists
+        if (window.staffCallTimeout) {
+          clearTimeout(window.staffCallTimeout);
+          window.staffCallTimeout = undefined;
+        }
+
+        toast.success("พนักงานตอบรับแล้ว!", {
+          description: "กำลังมาที่โต๊ะ",
+          duration: 3000,
+          className: "border-green-200 bg-green-50",
+        });
+      }
+    };
+
+    // Handle table joined confirmation
+    const handleTableJoined = (data: { tableId: string; timestamp: Date }) => {
+      console.log("🍽️ [CUSTOMER] Table joined confirmation:", data);
+    };
+
+    // Clear any existing listeners
+    const events: Array<keyof ServerToClientEvents> = [
+      "staffCalled",
+      "staffResponded",
+      "staffResponseConfirmed",
+      "staffResponseFromDashboard",
+      "callStaffResponse",
+      "tableJoined",
+    ];
+
+    events.forEach((event) => typedSocket.off(event));
+
+    // Add new listeners with proper typing
+    typedSocket.on("staffCalled", handleStaffCalled);
+    typedSocket.on("staffResponded", handleStaffResponse);
+    typedSocket.on("staffResponseConfirmed", handleStaffResponseConfirmed);
+    typedSocket.on("staffResponseFromDashboard", handleGenericStaffResponse);
+    typedSocket.on("callStaffResponse", handleGenericStaffResponse);
+    typedSocket.on("tableJoined", handleTableJoined);
+
+    return () => {
+      console.log("🧹 [CUSTOMER] Cleaning up staff response listeners...");
+      events.forEach((event) => typedSocket.off(event));
+
+      // Clear timeout on cleanup
+      if (window.staffCallTimeout) {
+        clearTimeout(window.staffCallTimeout);
+        window.staffCallTimeout = undefined;
+      }
+    };
+  }, [socket, isConnected, tableId]);
+
+  // Cleanup effect for component unmount
+  useEffect(() => {
+    return () => {
+      // Clear any pending timeouts
+      if (window.staffCallTimeout) {
+        clearTimeout(window.staffCallTimeout);
+        window.staffCallTimeout = undefined;
+      }
+    };
+  }, []);
 
   // Modal handlers
   const openItemModal = (item: MenuItem) => {
@@ -216,96 +417,91 @@ function MenuContent() {
   const numberTable = tableData?.number || "";
   const tableName = numberTable ? `โต๊ะ ${numberTable}` : "ไม่ระบุ";
 
-  const handleQuickCheckout = async () => {
-    if (!socket || !isConnected || !tableId) return;
-
-    // สร้างข้อมูลบิลทันที
-    const summary = prepareBillSummary();
-    if (!summary || summary.orders.length === 0) {
-      toast.error("ไม่มีออเดอร์ที่สามารถเช็คเอาท์ได้");
+  // Enhanced staff request function with better error handling and typing
+  const handleStaffRequest = async () => {
+    if (!socket || !isConnected || !tableId) {
+      toast.error("ไม่สามารถติดต่อกับระบบได้ กรุณาลองใหม่อีกครั้ง");
       return;
     }
 
-    // เตรียมข้อมูลสำหรับ dialog
-    setCheckoutData({
-      totalAmount: summary.totalAmount,
-      orderCount: summary.orders.length,
-      tableNumber: numberTable,
-      numberTable: tableName,
-    });
-
-    // แสดง dialog
-    setShowCheckoutDialog(true);
-  };
-
-  // ฟังก์ชันยืนยันการเช็คเอาท์
-  const handleConfirmCheckout = async () => {
-    if (!socket || !isConnected || !tableId || !checkoutData) return;
+    const summary = prepareBillSummary();
+    if (!summary || summary.orders.length === 0) {
+      toast.error("ไม่มีออเดอร์ที่พร้อมเช็คบิล");
+      return;
+    }
 
     try {
+      console.log(
+        "🔔 [CUSTOMER] Starting staff call process for table:",
+        tableId
+      );
+
       setIsCheckingOut(true);
+      setStaffCallPending(true);
 
-      // สร้างข้อมูลบิลอีกครั้ง (เพื่อความปลอดภัย)
-      const summary = prepareBillSummary();
-      if (!summary || summary.orders.length === 0) {
-        toast.error("เกิดข้อผิดพลาด: ไม่พบข้อมูลออเดอร์");
-        return;
-      }
-
-      // ดำเนินการเช็คเอาท์
-      const mappedOrders = summary.orders.map((order) => ({
-        tableId,
-        totalAmount: order.totalAmount,
-        id: order.id,
-        status: order.status as OrderStatus,
-        orderTime: order.orderTime,
-        notes: null,
-        customerName: null,
-        createdAt: new Date(),
-      }));
-
-      // ส่งข้อมูลผ่าน socket
-      socket.emit("checkoutTable", {
-        tableId,
-        totalAmount: summary.totalAmount,
-        orders: mappedOrders,
-        number: numberTable,
-        tableName: tableName,
-        timestamp: new Date().toISOString(),
-      });
-
-      // อัปเดต API
-      await fetch(`/api/tables/${tableId}/checkout`, {
+      // Call API to send staff call signal
+      const response = await fetch(`/api/tables/${tableId}/callStaff`, {
         method: "PATCH",
       });
 
-      // ทำความสะอาดข้อมูล
-      const checkedOutOrderIds = summary.orders.map((order) => order.id);
-      removeOrdersById(checkedOutOrderIds);
-      clearDraftCart();
-      setShowBillModal(false);
-      setBillSummary(null);
+      if (!response.ok) {
+        throw new Error("Failed to call staff");
+      }
 
-      // ปิด dialog
-      setShowCheckoutDialog(false);
-      setCheckoutData(null);
+      const result = await response.json();
+      console.log("🔔 [CUSTOMER] API response:", result);
 
-      // แสดงผลสำเร็จ
-      toast.success(`เช็คเอาท์สำเร็จ! 🎉`, {
-        description: `โต๊ะ ${numberTable} - ยอดรวม ฿${summary.totalAmount.toLocaleString()}`,
-        duration: 5000,
-      });
+      if (result.success) {
+        // Show first toast that signal was sent
+        toast.success("ส่งสัญญาณเรียกพนักงานแล้ว! 📞", {
+          description: `${tableName} - กำลังรอการตอบกลับ...`,
+          duration: 5000,
+        });
+
+        // Test: emit additional socket event with proper typing
+        console.log("🔔 [CUSTOMER] Emitting additional socket events");
+        const typedSocket = socket as Socket<
+          ServerToClientEvents,
+          ClientToServerEvents
+        >;
+        typedSocket.emit("customerCallStaff", {
+          tableId,
+          tableName,
+          timestamp: new Date().toISOString(),
+        });
+
+        // Set longer timeout with better fallback
+        window.staffCallTimeout = setTimeout(() => {
+          if (staffCallPending) {
+            console.log("⏰ [CUSTOMER] Staff call timeout reached");
+
+            setStaffCallPending(false);
+            setIsCheckingOut(false);
+
+            toast.warning("การตอบกลับล่าช้า แต่สัญญาณถูกส่งแล้ว", {
+              description: "พนักงานอาจกำลังยุ่ง หรือจะมาที่โต๊ะโดยไม่ตอบกลับ",
+              duration: 8000,
+              action: {
+                label: "เรียกใหม่",
+                onClick: () => handleStaffRequest(),
+              },
+            });
+          }
+        }, 15000); // Increased to 15 seconds
+      } else {
+        throw new Error("API returned unsuccessful response");
+      }
     } catch (error) {
-      console.error("Checkout error:", error);
-      toast.error("เกิดข้อผิดพลาดในการเช็คเอาท์");
-    } finally {
+      console.error("❌ [CUSTOMER] Call staff error:", error);
+      toast.error("เกิดข้อผิดพลาดในการเรียกพนักงาน");
+      setStaffCallPending(false);
       setIsCheckingOut(false);
     }
   };
 
-  // ฟังก์ชันปิด dialog
+  // Function to close dialog
   const handleCloseCheckoutDialog = () => {
-    if (isCheckingOut) return; // ป้องกันการปิดขณะกำลังประมวลผล
+    if (isCheckingOut) return; // Prevent closing while processing
     setShowCheckoutDialog(false);
     setCheckoutData(null);
   };
@@ -317,6 +513,8 @@ function MenuContent() {
       setShowBillModal(true);
     }
   };
+
+  // Debug Panel Component (only in development)
 
   // Computed values
   const hasServedOrders = useMemo(() => {
@@ -387,23 +585,40 @@ function MenuContent() {
           servedOrdersCount={servedOrders.length}
           cartLength={cart.length}
           isConnected={isConnected}
-          onShowBill={handleShowBill} // บิลแบบเต็ม
-          onQuickCheckout={handleQuickCheckout} // เช็คเอาท์แบบรวดเร็ว
-          onPreviewBill={handlePreviewBill} // ดูตัวอย่างบิล
-          isCheckingOut={isCheckingOut} // สถานะการเช็คเอาท์
+          onShowBill={handleShowBill}
+          onQuickCheckout={handleStaffRequest}
+          onPreviewBill={handlePreviewBill}
+          isCheckingOut={isCheckingOut || staffCallPending}
         />
+
         {checkoutData && (
           <CheckoutConfirmationDialog
             isOpen={showCheckoutDialog}
             onClose={handleCloseCheckoutDialog}
-            onConfirm={handleConfirmCheckout}
+            onConfirm={handleStaffRequest}
             tableNumber={checkoutData.tableNumber}
             numberTable={checkoutData.tableNumber}
             orderCount={checkoutData.orderCount}
             totalAmount={checkoutData.totalAmount}
-            isProcessing={isCheckingOut}
+            isProcessing={isCheckingOut || staffCallPending}
           />
         )}
+
+        {/* Staff Call Pending Indicator */}
+        {staffCallPending && (
+          <div className="bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-2xl p-6 flex items-center shadow-lg">
+            <div className="bg-white/20 p-3 rounded-full mr-4">
+              <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+            </div>
+            <div>
+              <h3 className="text-xl font-semibold mb-1">
+                กำลังเรียกพนักงาน...
+              </h3>
+              <p className="opacity-90">สัญญาณถูกส่งแล้ว กำลังรอการตอบกลับ</p>
+            </div>
+          </div>
+        )}
+
         {/* Success Message */}
         {submittedOrder && (
           <div className="bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-2xl p-6 flex items-center shadow-lg">
@@ -484,6 +699,8 @@ function MenuContent() {
           onRemoveItem={removeFromCart}
           onSubmitOrder={submitOrder}
         />
+
+        {/* Debug Panel */}
       </div>
     </div>
   );

@@ -1,4 +1,4 @@
-// types/socket.ts
+// types/socket.ts - Updated with proper Socket.IO types
 import { Order, OrderStatus, TableStatus } from "@prisma/client";
 
 /* -------------------- Event Payload Types -------------------- */
@@ -10,6 +10,62 @@ export interface NewOrderEvent {
   itemsCount: number;
   customerName?: string;
   timestamp: Date;
+}
+
+export interface OrderItemInput {
+  menuItemId: string;
+  quantity: number;
+  option?: string;
+  notes?: string;
+}
+export interface OrderInput {
+  tableId: string;
+  notes?: string;
+  items: OrderItemInput[];
+  customerName?: string;
+}
+export interface CallStaffOrderPayload {
+  id: string;
+  totalAmount: number;
+  status: OrderStatus;
+  orderTime: Date;
+  itemsCount: number;
+}
+
+export interface CallStaffForBillEvent {
+  type: "CALL_STAFF_FOR_BILL";
+  tableId: string;
+  tableNumber: number;
+  tableName: string;
+  totalAmount: number;
+  orderCount: number;
+  orders: CallStaffOrderPayload[];
+  orderIds: string[];
+  timestamp: string;
+  customerRequest: boolean;
+  urgent: boolean;
+}
+
+export interface StaffCalledEvent {
+  tableId: string;
+  message: string;
+  timestamp: string;
+  staffConfirmed?: boolean;
+}
+
+export interface StaffResponseEvent {
+  tableId: string;
+  staffId?: string;
+  message: string;
+  eta?: string;
+  timestamp: string;
+}
+
+export interface StaffResponseFromDashboardEvent {
+  tableId: string;
+  message: string;
+  timestamp: string;
+  staffConfirmed: boolean;
 }
 
 export interface BillCreatedEvent {
@@ -34,26 +90,6 @@ export interface OrderStatusUpdateEvent {
   orderId: string;
   status: OrderStatus;
   tableId: string;
-}
-
-/* -------------------- Order Input Types -------------------- */
-export interface OrderItemInput {
-  menuItemId: string;
-  quantity: number;
-  option?: string;
-  notes?: string;
-}
-
-export interface OrderInput {
-  tableId: string;
-  notes?: string;
-  items: OrderItemInput[];
-  customerName?: string;
-}
-
-export interface UpdateOrderInput {
-  status?: OrderStatus;
-  notes?: string;
 }
 
 /* -------------------- Status Mapping & Helpers -------------------- */
@@ -94,15 +130,18 @@ export function parseTableStatus(status: string): TableStatus {
     : "available";
 }
 
-/* -------------------- Socket.IO Mapping Types -------------------- */
+/* -------------------- Socket.IO Event Maps -------------------- */
 export interface ServerToClientEvents {
+  // Basic events
   hello: (data: string) => void;
-  pong: (data: string) => void;
+  ping: () => void;
+  pong: (data: { message: string; timestamp: Date }) => void;
   connectionStatus: (data: {
     connected: boolean;
     clientsCount: number;
   }) => void;
 
+  // Order events
   newOrder: (data: NewOrderEvent) => void;
   orderStatusChanged: (data: {
     orderId: string;
@@ -113,10 +152,15 @@ export interface ServerToClientEvents {
   orderStatusUpdated: (data: {
     orderId: string;
     status: string;
-    tableId: string;
+    timestamp: Date;
+  }) => void;
+  orderConfirmed: (data: {
+    orderId: string;
+    message: string;
     timestamp: Date;
   }) => void;
 
+  // Table events
   tableStatusChanged: (data: {
     tableId: string;
     status: string;
@@ -127,9 +171,28 @@ export interface ServerToClientEvents {
     message: string;
     orders?: Order;
   }) => void;
+  tableJoined: (data: { tableId: string; timestamp: Date }) => void;
 
+  // Staff call events - ADD MISSING EVENTS HERE
+  callStaffForBill: (data: CallStaffForBillEvent) => void;
+  staffCalled: (data: StaffCalledEvent) => void;
+  staffResponded: (data: StaffResponseEvent) => void;
+  staffResponseFromDashboard: (data: StaffResponseFromDashboardEvent) => void;
+  callStaffResponse: (data: StaffResponseEvent) => void;
+  staffResponseConfirmed: (data: {
+    tableId: string;
+    timestamp: string;
+  }) => void;
+
+  // Customer staff call events - ADD THESE
+  customerCallStaff: (data: {
+    tableId: string;
+    tableName: string;
+    timestamp: string;
+  }) => void;
+
+  // Bill and checkout events
   billCreated: (data: BillCreatedEvent) => void;
-
   tableCheckedOut: (data: {
     tableId: string;
     totalAmount: number;
@@ -138,36 +201,67 @@ export interface ServerToClientEvents {
     tableName: string;
     timestamp: string;
   }) => void;
-
   checkoutConfirmed: (data: {
     tableId: string;
     message: string;
     timestamp: Date;
   }) => void;
+
+  // Utility events
   ordersUpdated: (orders: Order[]) => void;
+  refreshOrders: (data: {
+    tableId: string;
+    message: string;
+    timestamp: Date;
+  }) => void;
+  error: (data: { message: string; tableId?: string; timestamp: Date }) => void;
+  healthResponse: (data: {
+    status: string;
+    timestamp: Date;
+    connectedRooms: string[];
+  }) => void;
+
+  // Room status
+  checkRoomStatus: (room: string) => void;
 }
 
 export interface ClientToServerEvents {
-  hello: (data: string) => void;
+  // Basic events
+  hello: () => void;
   ping: () => void;
 
+  // Room management
   joinTable: (tableId: string) => void;
   leaveTable: (tableId: string) => void;
   joinDashboard: () => void;
   leaveDashboard: () => void;
 
-  orderStatusUpdated: (data: {
+  // Order events
+  orderStatusUpdate: (data: OrderStatusUpdateEvent) => void;
+  newOrderNotification: (data: {
     orderId: string;
-    status: string;
     tableId: string;
-    timestamp: Date;
-  }) => void;
-  orderStatusUpdate: (data: {
-    orderId: string;
-    status: string;
-    tableId: string;
+    tableName: string;
+    totalAmount: number;
+    itemsCount: number;
+    customerName?: string;
   }) => void;
 
+  // Table events
+  tableStatusUpdate: (data: { tableId: string; status: string }) => void;
+  requestTableOrders: (tableId: string) => void;
+  refreshTableOrders: (tableId: string) => void;
+
+  // Staff call events - ADD MISSING EVENTS HERE
+  callStaffForBill: (data: Omit<CallStaffForBillEvent, "timestamp">) => void;
+  customerCallStaff: (data: {
+    tableId: string;
+    tableName: string;
+    timestamp: string;
+  }) => void;
+  staffResponseFromDashboard: (data: StaffResponseFromDashboardEvent) => void;
+
+  // Checkout events
   checkoutTable: (data: {
     tableId: string;
     totalAmount: number;
@@ -176,6 +270,10 @@ export interface ClientToServerEvents {
     tableName: string;
     timestamp: string;
   }) => void;
+
+  // Utility events
+  healthCheck: () => void;
+  checkRoomStatus: (room: string) => void;
 }
 
 /* -------------------- InterServerEvents -------------------- */

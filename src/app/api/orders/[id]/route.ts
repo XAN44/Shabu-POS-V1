@@ -1,11 +1,14 @@
 // API ORDER ID
 import { NextResponse } from "next/server";
 import db from "../../../lib/prismaClient";
-import {
-  OrderStatusEvent,
-  TableStatusEvent,
-  UpdateOrderInput,
-} from "@/src/app/types/socket-event";
+import { OrderStatusEvent, TableStatusEvent } from "@/src/app/types/socket";
+import { OrderStatus } from "@prisma/client";
+
+// Define the UpdateOrderInput type
+interface UpdateOrderInput {
+  status?: OrderStatus;
+  notes?: string;
+}
 
 // PATCH - อัปเดตสถานะออเดอร์
 export async function PATCH(
@@ -47,7 +50,7 @@ export async function PATCH(
     });
 
     // ถ้าสถานะเปลี่ยนเป็น "served" ให้เปลี่ยนสถานะโต๊ะเป็น "available"
-    if (body.status === "served") {
+    if (body.status === OrderStatus.served) {
       await db.table.update({
         where: { id: existingOrder.tableId },
         data: { status: "available" },
@@ -67,27 +70,24 @@ export async function PATCH(
         const tableStatusEvent: TableStatusEvent = {
           tableId: existingOrder.tableId,
           status:
-            body.status === "served" ? "available" : existingOrder.table.status,
+            body.status === OrderStatus.served
+              ? "available"
+              : existingOrder.table.status,
           timestamp: new Date(),
         };
 
         global.io.to("dashboard").emit("tableStatusChanged", tableStatusEvent);
 
         // แจ้ง dashboard ทุกคน
-        global.io.to("dashboard").emit("orderStatusChanged", {
-          ...orderStatusEvent,
-          tableId: existingOrder.tableId,
-        });
+        global.io.to("dashboard").emit("orderStatusChanged", orderStatusEvent);
 
         // แจ้งโต๊ะที่เกี่ยวข้อง
         global.io
           .to(`table-${existingOrder.tableId}`)
-          .emit("orderStatusUpdated", {
-            ...orderStatusEvent,
-          });
+          .emit("orderStatusUpdated", orderStatusEvent);
 
         // ถ้าเสิร์ฟแล้ว แจ้งการเปลี่ยนสถานะโต๊ะด้วย
-        if (body.status === "served") {
+        if (body.status === OrderStatus.served) {
           global.io.to("dashboard").emit("tableStatusChanged", {
             tableId: existingOrder.tableId,
             status: "available",
@@ -143,7 +143,7 @@ export async function DELETE(
       if (global.io) {
         const orderStatusEvent: OrderStatusEvent = {
           orderId: id,
-          status: "cancelled",
+          status: OrderStatus.cancelled,
           timestamp: new Date(),
           tableId: existingOrder.tableId,
         };
@@ -155,19 +155,11 @@ export async function DELETE(
         };
 
         // แจ้ง dashboard
-        global.io.to("dashboard").emit("orderStatusChanged", {
-          ...orderStatusEvent,
-          tableId: existingOrder.tableId,
-        });
+        global.io.to("dashboard").emit("orderStatusChanged", orderStatusEvent);
 
         global.io
           .to(`table-${existingOrder.tableId}`)
-          .emit("orderStatusUpdated", {
-            orderId: id,
-            status: "cancelled",
-            timestamp: new Date(),
-            tableId: existingOrder.tableId,
-          });
+          .emit("orderStatusUpdated", orderStatusEvent);
 
         // แจ้งการเปลี่ยนสถานะโต๊ะ
         global.io.to("dashboard").emit("tableStatusChanged", tableStatusEvent);
@@ -192,6 +184,7 @@ export async function DELETE(
     );
   }
 }
+
 export async function GET(
   req: Request,
   { params }: { params: Promise<{ id: string }> }

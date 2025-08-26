@@ -24,6 +24,8 @@ import {
   WifiOff,
   Receipt,
   Loader2,
+  Phone,
+  Users,
 } from "lucide-react";
 import { TableManagement } from "../../components/tables/TableManagement";
 import { MenuManagement } from "../../components/menu/MenuManagement";
@@ -40,6 +42,8 @@ import {
   parseOrderStatus,
   parseTableStatus,
   statusMessages,
+  CallStaffForBillEvent,
+  StaffCalledEvent,
 } from "@/src/app/types/socket";
 
 // Constants
@@ -62,24 +66,20 @@ const OrdersDashboard: React.FC = () => {
   const [autoRefresh, setAutoRefresh] = useState(true);
   const [hasDataLoaded, setHasDataLoaded] = useState(false); // Track if data has been loaded at least once
 
+  // เพิ่ม state สำหรับ call staff notifications
+  const [staffCallRequests, setStaffCallRequests] = useState<
+    Map<string, CallStaffForBillEvent>
+  >(new Map());
+
   const { socket, isConnected } = useSocketContext();
 
-  // ✅ Use refs to prevent duplicate operations
+  // Use refs to prevent duplicate operations
   const fetchDataRef = useRef<Promise<void> | null>(null);
   const lastCheckoutRef = useRef<string>("");
+  const staffCallSoundRef = useRef<HTMLAudioElement | null>(null);
 
   const newOrderAudioRef = useRef<HTMLAudioElement | null>(null);
   const checkoutAudioRef = useRef<HTMLAudioElement | null>(null);
-
-  useEffect(() => {
-    if (typeof window !== "undefined" && "Audio" in window) {
-      newOrderAudioRef.current = new Audio("/soundEffect.mp3");
-      newOrderAudioRef.current.volume = 0.7;
-
-      checkoutAudioRef.current = new Audio("/checkout.mp3");
-      checkoutAudioRef.current.volume = 0.7;
-    }
-  }, []);
 
   const todayOrders = useMemo(() => {
     const today = new Date();
@@ -125,7 +125,7 @@ const OrdersDashboard: React.FC = () => {
     [tables]
   );
 
-  // ✅ Improved fetchData - แยก loading states
+  // Improved fetchData - แยก loading states
   const fetchData = useCallback(
     async (isBackground = false) => {
       // Prevent duplicate calls
@@ -204,21 +204,207 @@ const OrdersDashboard: React.FC = () => {
     [hasDataLoaded]
   );
 
+  // ฟังก์ชันหยุดเสียง staff call
+  const stopStaffCallSound = useCallback(() => {
+    const audio = staffCallSoundRef.current;
+    if (audio) {
+      audio.loop = false;
+      audio.pause();
+      audio.currentTime = 0;
+    }
+  }, []);
+
+  useEffect(() => {
+    if (typeof window !== "undefined" && "Audio" in window) {
+      try {
+        // Initialize audio objects
+        newOrderAudioRef.current = new Audio("/soundEffect.mp3");
+        checkoutAudioRef.current = new Audio("/checkout.mp3");
+        staffCallSoundRef.current = new Audio("/callStaff.mp3");
+
+        // Set properties
+        [newOrderAudioRef, checkoutAudioRef, staffCallSoundRef].forEach(
+          (audioRef, index) => {
+            if (audioRef.current) {
+              audioRef.current.volume = index === 2 ? 0.8 : 0.7; // Staff call slightly louder
+              audioRef.current.preload = "auto";
+
+              // Add error handlers
+              audioRef.current.addEventListener("error", (e) => {
+                console.error(`Audio ${index} error:`, e);
+              });
+
+              // Add loaded event
+              audioRef.current.addEventListener("canplaythrough", () => {
+                console.log(`Audio ${index} loaded successfully`);
+              });
+            }
+          }
+        );
+
+        // Try to unlock audio context immediately
+        const unlockAudio = () => {
+          [newOrderAudioRef, checkoutAudioRef, staffCallSoundRef].forEach(
+            (audioRef) => {
+              if (audioRef.current) {
+                const playPromise = audioRef.current.play();
+                if (playPromise) {
+                  playPromise
+                    .then(() => {
+                      audioRef.current!.pause();
+                      audioRef.current!.currentTime = 0;
+                      console.log("Audio context unlocked");
+                    })
+                    .catch(() => {
+                      // Expected to fail, but unlocks the context
+                    });
+                }
+              }
+            }
+          );
+        };
+
+        // Try to unlock on various user interactions
+        const events = ["click", "touchstart", "keydown", "mousedown"];
+        const unlockHandler = () => {
+          unlockAudio();
+          events.forEach((event) => {
+            document.removeEventListener(event, unlockHandler);
+          });
+        };
+
+        events.forEach((event) => {
+          document.addEventListener(event, unlockHandler, { once: true });
+        });
+      } catch (error) {
+        console.warn("Failed to initialize audio:", error);
+      }
+    }
+
+    return () => {
+      // Cleanup
+      [newOrderAudioRef, checkoutAudioRef, staffCallSoundRef].forEach(
+        (audioRef) => {
+          if (audioRef.current) {
+            audioRef.current.removeEventListener("error", () => {});
+            audioRef.current.removeEventListener("canplaythrough", () => {});
+          }
+        }
+      );
+    };
+  }, []);
+
   const playSound = useCallback(
-    (type: "newOrder" | "checkout") => {
-      const audio =
-        type === "newOrder"
-          ? newOrderAudioRef.current
-          : checkoutAudioRef.current;
-      if (audio) {
+    async (type: "newOrder" | "checkout" | "staffCall") => {
+      let audio: HTMLAudioElement | null = null;
+      let soundName = "";
+
+      switch (type) {
+        case "newOrder":
+          audio = newOrderAudioRef.current;
+          soundName = "New Order";
+          break;
+        case "checkout":
+          audio = checkoutAudioRef.current;
+          soundName = "Checkout";
+          break;
+        case "staffCall":
+          audio = staffCallSoundRef.current;
+          soundName = "Staff Call";
+          break;
+      }
+
+      if (!audio) {
+        console.warn(`${soundName} audio not initialized`);
+        return;
+      }
+
+      try {
+        // Reset audio to beginning
         audio.currentTime = 0;
-        audio.play().catch((err) => console.warn("เล่นเสียงไม่ได้", err));
+
+        // Check if audio is ready
+        if (audio.readyState >= 2) {
+          // HAVE_CURRENT_DATA
+          const playPromise = audio.play();
+
+          if (playPromise !== undefined) {
+            await playPromise;
+            console.log(`✅ ${soundName} sound played successfully`);
+
+            // For staff call, play twice for emphasis
+            if (type === "staffCall") {
+              setTimeout(async () => {
+                try {
+                  audio!.currentTime = 0;
+                  await audio!.play();
+                  console.log(`✅ ${soundName} second play completed`);
+                } catch (err) {
+                  console.warn(`⚠️ ${soundName} second play failed:`, err);
+                }
+              }, 500);
+            }
+          }
+        } else {
+          // Audio not ready, wait for it to load
+          console.log(`Audio not ready, waiting for ${soundName}...`);
+
+          const onCanPlay = async () => {
+            audio!.removeEventListener("canplaythrough", onCanPlay);
+            try {
+              audio!.currentTime = 0;
+              await audio!.play();
+              console.log(`✅ ${soundName} sound played after loading`);
+            } catch (err) {
+              console.warn(`⚠️ ${soundName} failed after loading:`, err);
+            }
+          };
+
+          audio.addEventListener("canplaythrough", onCanPlay);
+
+          // Fallback timeout
+          setTimeout(() => {
+            audio!.removeEventListener("canplaythrough", onCanPlay);
+          }, 2000);
+        }
+      } catch (error: unknown) {
+        console.warn(`⚠️ ${soundName} sound failed to play:`, error);
+        if (error instanceof Error) {
+          // Show user notification for audio issues
+          if (error.name === "NotAllowedError") {
+            toast.info(`เปิดเสียงแจ้งเตือน ${soundName}`, {
+              description: "กรุณาคลิกที่หน้าจอเพื่อเปิดใช้งานเสียง",
+              duration: 3000,
+              action: {
+                label: "เปิดเสียง",
+                onClick: () => {
+                  // Force unlock audio context
+                  [
+                    newOrderAudioRef,
+                    checkoutAudioRef,
+                    staffCallSoundRef,
+                  ].forEach((audioRef) => {
+                    if (audioRef.current) {
+                      audioRef.current
+                        .play()
+                        .then(() => {
+                          audioRef.current!.pause();
+                          audioRef.current!.currentTime = 0;
+                        })
+                        .catch(() => {});
+                    }
+                  });
+                },
+              },
+            });
+          }
+        }
       }
     },
-    [newOrderAudioRef, checkoutAudioRef]
+    []
   );
 
-  // ✅ Socket event handlers with background updates
+  // Socket event handlers with background updates
   const handleNewOrder = useCallback(
     (data: NewOrderEvent) => {
       toast.success(`ออเดอร์ใหม่จากโต๊ะ ${data.tableName || data.tableId}`, {
@@ -235,6 +421,77 @@ const OrdersDashboard: React.FC = () => {
     [fetchData, playSound]
   );
 
+  const handleCallStaffForBill = useCallback(
+    (data: CallStaffForBillEvent) => {
+      console.log("🔔 Staff call received in dashboard:", data);
+
+      // เล่นเสียงทันทีก่อน
+      playSound("staffCall");
+
+      setStaffCallRequests((prev) => new Map(prev.set(data.tableId, data)));
+
+      toast.info(
+        <div className="flex items-center space-x-3">
+          <div className="bg-red-100 p-2 rounded-full animate-bounce">
+            <Phone className="w-5 h-5 text-red-600" />
+          </div>
+          <div className="flex-1">
+            <div className="font-semibold text-red-800">
+              {data.tableName} ขอเช็คบิล
+            </div>
+            <div className="text-sm text-red-600">
+              {data.orderCount} ออเดอร์ - ฿{data.totalAmount.toLocaleString()}
+            </div>
+          </div>
+        </div>,
+        {
+          duration: 15000, // แสดงนานขึ้น
+          className: "border-red-200 bg-red-50",
+          action: {
+            label: "ตอบรับ",
+            onClick: () => {
+              if (socket && isConnected) {
+                socket.emit("staffResponseFromDashboard", {
+                  tableId: data.tableId,
+                  message: "พนักงานได้รับแจ้งแล้ว กำลังเตรียมไปที่โต๊ะ",
+                  timestamp: new Date().toISOString(),
+                  staffConfirmed: true,
+                });
+              }
+
+              setStaffCallRequests((prev) => {
+                const newMap = new Map(prev);
+                newMap.delete(data.tableId);
+                return newMap;
+              });
+
+              toast.success(`ตอบรับ ${data.tableName} แล้ว`);
+            },
+          },
+        }
+      );
+    },
+    [playSound, socket, isConnected]
+  );
+
+  // อัปเดต handler สำหรับรับ confirmation
+  const handleStaffCalled = useCallback((data: StaffCalledEvent) => {
+    console.log("✅ Staff called confirmation received:", data);
+
+    // ลบ request ออกจาก state เมื่อได้รับการยืนยัน
+    setStaffCallRequests((prev) => {
+      const newMap = new Map(prev);
+      newMap.delete(data.tableId);
+      return newMap;
+    });
+
+    // แสดง toast ยืนยัน
+    toast.success("พนักงานได้รับแจ้งแล้ว", {
+      description: data.message,
+      duration: 3000,
+    });
+  }, []);
+
   const handleTableCheckedOut = useCallback(
     (data: {
       tableId: string;
@@ -243,7 +500,7 @@ const OrdersDashboard: React.FC = () => {
       number: string;
       tableName: string;
     }) => {
-      // ✅ Prevent duplicate notifications
+      // Prevent duplicate notifications
       const checkoutKey = `${data.tableId}-${data.totalAmount}-${
         data.timestamp || Date.now()
       }`;
@@ -321,7 +578,7 @@ const OrdersDashboard: React.FC = () => {
     }, 100);
   }, []);
 
-  // ✅ Single useEffect for socket events
+  // Single useEffect for socket events
   useEffect(() => {
     if (!socket || !isConnected) return;
 
@@ -333,6 +590,8 @@ const OrdersDashboard: React.FC = () => {
     socket.off("tableStatusChanged");
     socket.off("billCreated");
     socket.off("tableCheckedOut");
+    socket.off("callStaffForBill");
+    socket.off("staffCalled");
 
     // Add new listeners
     socket.on("newOrder", handleNewOrder);
@@ -340,6 +599,8 @@ const OrdersDashboard: React.FC = () => {
     socket.on("tableStatusChanged", handleTableStatusChanged);
     socket.on("billCreated", handleBillCreated);
     socket.on("tableCheckedOut", handleTableCheckedOut);
+    socket.on("callStaffForBill", handleCallStaffForBill);
+    socket.on("staffCalled", handleStaffCalled);
 
     return () => {
       console.log("Cleaning up socket listeners...");
@@ -349,6 +610,8 @@ const OrdersDashboard: React.FC = () => {
       socket.off("tableStatusChanged");
       socket.off("billCreated");
       socket.off("tableCheckedOut");
+      socket.off("callStaffForBill");
+      socket.off("staffCalled");
     };
   }, [
     socket,
@@ -358,6 +621,8 @@ const OrdersDashboard: React.FC = () => {
     handleTableStatusChanged,
     handleBillCreated,
     handleTableCheckedOut,
+    handleCallStaffForBill,
+    handleStaffCalled,
   ]);
 
   // Initial data fetch
@@ -493,7 +758,6 @@ const OrdersDashboard: React.FC = () => {
   }, []);
 
   const handleCheckoutComplete = useCallback(async () => {
-    // Background update
     setTimeout(() => {
       fetchData(true);
     }, 300);
@@ -583,6 +847,14 @@ const OrdersDashboard: React.FC = () => {
                 กำลังซิงค์...
               </span>
             )}
+
+            {/* Staff call requests indicator */}
+            {staffCallRequests.size > 0 && (
+              <span className="flex items-center gap-1 px-2 py-1 bg-red-100 text-red-800 rounded-full text-xs animate-pulse">
+                <Users className="w-3 h-3" />
+                {staffCallRequests.size} โต๊ะรอเช็คบิล
+              </span>
+            )}
           </div>
         </div>
 
@@ -635,6 +907,73 @@ const OrdersDashboard: React.FC = () => {
             >
               ปิด
             </button>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Staff Call Requests Section */}
+      {staffCallRequests.size > 0 && (
+        <Card className="border-red-200 bg-red-50">
+          <CardContent className="p-4">
+            <h3 className="font-semibold text-red-800 mb-3 flex items-center gap-2">
+              <Phone className="w-5 h-5" />
+              โต๊ะที่เรียกพนักงานเช็คบิล ({staffCallRequests.size} โต๊ะ)
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+              {Array.from(staffCallRequests.values()).map((request) => (
+                <Card
+                  key={request.tableId}
+                  className="border border-red-200 bg-white"
+                >
+                  <CardContent className="p-3">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="font-semibold text-red-800">
+                        {request.tableName}
+                      </div>
+                      <div className="text-xs text-gray-500">
+                        {new Date(request.timestamp).toLocaleTimeString(
+                          "th-TH"
+                        )}
+                      </div>
+                    </div>
+                    <div className="text-sm text-gray-600 mb-2">
+                      {request.orderCount} ออเดอร์
+                    </div>
+                    <div className="text-lg font-bold text-red-600 mb-3">
+                      ฿{request.totalAmount.toLocaleString()}
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => {
+                          stopStaffCallSound();
+                          setStaffCallRequests((prev) => {
+                            const newMap = new Map(prev);
+                            newMap.delete(request.tableId);
+                            return newMap;
+                          });
+                        }}
+                        className="flex-1 px-3 py-2 bg-red-500 text-white rounded-md hover:bg-red-600 text-sm"
+                      >
+                        ไปที่โต๊ะ
+                      </button>
+                      <button
+                        onClick={() => {
+                          // ปิดการแจ้งเตือน
+                          setStaffCallRequests((prev) => {
+                            const newMap = new Map(prev);
+                            newMap.delete(request.tableId);
+                            return newMap;
+                          });
+                        }}
+                        className="px-3 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400 text-sm"
+                      >
+                        ปิด
+                      </button>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
           </CardContent>
         </Card>
       )}
@@ -772,7 +1111,9 @@ const OrdersDashboard: React.FC = () => {
       </div>
 
       {/* Quick Actions */}
-      {(todayStats.newOrders > 0 || todayStats.preparingOrders > 0) && (
+      {(todayStats.newOrders > 0 ||
+        todayStats.preparingOrders > 0 ||
+        staffCallRequests.size > 0) && (
         <Card className="border-orange-200 bg-orange-50">
           <CardContent className="p-4">
             <h3 className="font-semibold text-orange-800 mb-2">
@@ -792,6 +1133,11 @@ const OrdersDashboard: React.FC = () => {
               {todayStats.readyOrders > 0 && (
                 <span className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm">
                   ✅ {todayStats.readyOrders} ออเดอร์พร้อมเสิร์ฟ
+                </span>
+              )}
+              {staffCallRequests.size > 0 && (
+                <span className="px-3 py-1 bg-red-100 text-red-800 rounded-full text-sm animate-pulse">
+                  📞 {staffCallRequests.size} โต๊ะเรียกพนักงาน
                 </span>
               )}
             </div>

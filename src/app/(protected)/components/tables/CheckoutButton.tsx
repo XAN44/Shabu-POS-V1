@@ -126,11 +126,6 @@ export const CheckoutButton: React.FC<CheckoutButtonProps> = ({
       setCheckoutComplete(true);
 
       toast.success("เช็คบิลสำเร็จ!", {
-        description: `บิลเลขที่ ${result.bill.id.slice(
-          -8
-        )} - ฿${result.bill.totalAmount.toLocaleString()} (${
-          result.ordersBilled
-        } ออเดอร์)`,
         duration: 5000,
       });
 

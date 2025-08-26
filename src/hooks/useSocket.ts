@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import { io, Socket } from "socket.io-client";
 import {
   ClientToServerEvents,
+  OrderStatusUpdateEvent,
   ServerToClientEvents,
 } from "../app/types/socket";
 
@@ -112,7 +113,7 @@ export const useSocket = () => {
 
   // ✅ เพิ่มฟังก์ชันสำหรับส่ง order status update
   const updateOrderStatus = useCallback(
-    (data: { orderId: string; status: string; tableId: string }) => {
+    (data: OrderStatusUpdateEvent) => {
       if (socket && isConnected) {
         socket.emit("orderStatusUpdate", data);
         console.log("📝 Order status update sent:", data);
@@ -120,7 +121,6 @@ export const useSocket = () => {
     },
     [socket, isConnected]
   );
-
   useEffect(() => {
     connect();
     return () => {

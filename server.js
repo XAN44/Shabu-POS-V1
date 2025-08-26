@@ -11,9 +11,6 @@ const handle = app.getRequestHandler();
 
 let io;
 
-if (global.io) {
-  global.io.emit("menu:updated", menuItem);
-}
 app.prepare().then(() => {
   const httpServer = createServer(async (req, res) => {
     const parsedUrl = parse(req.url, true);
@@ -25,12 +22,18 @@ app.prepare().then(() => {
       origin: process.env.CLIENT_URL || "*",
       methods: ["GET", "POST"],
     },
-    transports: ["websocket", "polling"], // ✅ รองรับทั้ง websocket และ polling
+    transports: ["websocket", "polling"],
   });
 
-  // ✅ Enhanced Socket.IO connection handling
   io.on("connection", (socket) => {
     console.log(`✅ User connected: ${socket.id}`);
+
+    // Join rooms
+    socket.on("joinTable", (tableId) => {
+      socket.join(`table-${tableId}`);
+      socket.data.tableId = tableId;
+      console.log(`🍽️ ${socket.id} joined table-${tableId}`);
+    });
 
     socket.on("joinDashboard", () => {
       socket.join("dashboard");
@@ -38,6 +41,22 @@ app.prepare().then(() => {
       console.log(`🖥️ ${socket.id} joined dashboard`);
     });
 
+    // Leave rooms
+    socket.on("leaveTable", (tableId) => {
+      console.log(
+        `📤 Socket ${socket.id} leaving table room: table-${tableId}`
+      );
+      socket.leave(`table-${tableId}`);
+      socket.data.tableId = null;
+    });
+
+    socket.on("leaveDashboard", () => {
+      console.log(`📤 Socket ${socket.id} leaving dashboard room`);
+      socket.leave("dashboard");
+      socket.data.role = null;
+    });
+
+    // Checkout table
     socket.on(
       "checkoutTable",
       ({ tableId, totalAmount, orders, number, tableName }) => {
@@ -57,31 +76,7 @@ app.prepare().then(() => {
       }
     );
 
-    // ✅ Handle room leaving
-    socket.on("leaveTable", (tableId) => {
-      console.log(
-        `📤 Socket ${socket.id} leaving table room: table-${tableId}`
-      );
-      socket.leave(`table-${tableId}`);
-      socket.data.tableId = null;
-    });
-
-    socket.on("leaveDashboard", () => {
-      console.log(`📤 Socket ${socket.id} leaving dashboard room`);
-      socket.leave("dashboard");
-      socket.data.role = null;
-    });
-
-    // ✅ Handle ping/pong for connection testing
-    socket.on("ping", () => {
-      socket.emit("pong", { message: "pong", timestamp: new Date() });
-    });
-
-    socket.on("hello", () => {
-      socket.emit("hello", "Hello from server!");
-    });
-
-    // ✅ Handle order status updates from clients (mainly for dashboard)
+    // Order status updates
     socket.on("orderStatusUpdate", (data) => {
       const broadcastData = {
         orderId: data.orderId,
@@ -90,10 +85,10 @@ app.prepare().then(() => {
         timestamp: new Date(),
       };
 
-      // ✅ Broadcast to dashboard room (ให้ dashboard อื่นๆ ได้เห็น)
+      // Broadcast to dashboard room
       socket.to("dashboard").emit("orderStatusChanged", broadcastData);
 
-      // ✅ Broadcast to the specific table room (สำคัญที่สุด!)
+      // Broadcast to the specific table room
       if (data.tableId) {
         console.log(`📤 Broadcasting to table-${data.tableId}:`, {
           orderId: data.orderId,
@@ -107,7 +102,6 @@ app.prepare().then(() => {
           timestamp: new Date(),
         });
 
-        // ✅ เพิ่ม fallback notification
         socket.to(`table-${data.tableId}`).emit("tableOrdersUpdate", {
           tableId: data.tableId,
           message: `Order ${data.orderId} status changed to ${data.status}`,
@@ -116,7 +110,7 @@ app.prepare().then(() => {
       }
     });
 
-    // ✅ Handle table status updates
+    // Table status updates
     socket.on("tableStatusUpdate", (data) => {
       console.log(`🔄 Table status update received:`, data);
 
@@ -126,16 +120,13 @@ app.prepare().then(() => {
         timestamp: new Date(),
       };
 
-      // Broadcast to dashboard room
       socket.to("dashboard").emit("tableStatusChanged", broadcastData);
-
-      // ✅ Also notify the table itself
       socket
         .to(`table-${data.tableId}`)
         .emit("tableStatusChanged", broadcastData);
     });
 
-    // ✅ Handle new order notifications
+    // New order notifications
     socket.on("newOrderNotification", (data) => {
       console.log(`🆕 New order notification:`, data);
 
@@ -149,10 +140,8 @@ app.prepare().then(() => {
         timestamp: new Date(),
       };
 
-      // Broadcast to dashboard room
       socket.to("dashboard").emit("newOrder", broadcastData);
 
-      // ✅ Confirm to the table that sent the order
       if (data.tableId) {
         socket.to(`table-${data.tableId}`).emit("orderConfirmed", {
           orderId: data.orderId,
@@ -162,19 +151,69 @@ app.prepare().then(() => {
       }
     });
 
-    // ✅ Request current orders for a table (useful for reconnection)
+    // ✅ FIXED: Call staff for bill - ลูกค้าเรียกพนักงาน
+    socket.on("callStaffForBill", (data) => {
+      console.log(`🔔 Call staff for bill received:`, data);
+
+      const broadcastData = {
+        type: "CALL_STAFF_FOR_BILL",
+        tableId: data.tableId,
+        tableNumber: data.tableNumber,
+        tableName: data.tableName,
+        totalAmount: data.totalAmount,
+        orderCount: data.orderCount,
+        orders: data.orders,
+        orderIds: data.orderIds,
+        timestamp: new Date().toISOString(),
+        customerRequest: data.customerRequest,
+        urgent: data.urgent || false,
+      };
+
+      // ส่งไปยัง POS Dashboard
+      socket.to("dashboard").emit("callStaffForBill", broadcastData);
+
+      console.log(`📤 Broadcasting call staff for table ${data.tableNumber}`);
+    });
+
+    // ✅ FIXED: Staff response from dashboard - พนักงานตอบกลับจาก Dashboard
+    socket.on("staffResponseFromDashboard", (data) => {
+      console.log(`✅ Staff response from dashboard received:`, data);
+
+      const confirmData = {
+        tableId: data.tableId,
+        message: data.message || "พนักงานจะมาเช็คบิลในไม่ช้า",
+        timestamp: data.timestamp || new Date().toISOString(),
+        staffConfirmed: true,
+        status: "confirmed", // เพิ่ม status เพื่อให้ลูกค้าทราบ
+      };
+
+      // ✅ ส่งไปยังโต๊ะที่เรียกพนักงาน (ลูกค้า)
+      socket.to(`table-${data.tableId}`).emit("staffCalled", confirmData);
+
+      // ส่งไปยัง dashboard อื่นๆ เพื่อซิงค์สถานะ
+      socket.to("dashboard").emit("staffResponseConfirmed", {
+        tableId: data.tableId,
+        timestamp: confirmData.timestamp,
+      });
+
+      console.log(
+        `📤 Staff response confirmation sent to table-${data.tableId}`
+      );
+    });
+
+    // ✅ REMOVED DUPLICATE: ลบ staffCalled event ที่ซ้ำ เหลือแค่ staffResponseFromDashboard
+
+    // Table orders management
     socket.on("requestTableOrders", async (tableId) => {
       console.log(`📋 Requesting orders for table: ${tableId}`);
 
       try {
-        // ✅ ส่งกลับการยืนยันว่าได้รับคำขอแล้ว
         socket.emit("tableOrdersUpdate", {
           tableId,
           message: "Orders request acknowledged",
           timestamp: new Date(),
         });
 
-        // ✅ แจ้งให้ client รีเฟรชข้อมูล
         setTimeout(() => {
           socket.emit("refreshOrders", {
             tableId,
@@ -191,7 +230,6 @@ app.prepare().then(() => {
       }
     });
 
-    // ✅ Handle manual refresh requests
     socket.on("refreshTableOrders", (tableId) => {
       console.log(`🔄 Manual refresh requested for table: ${tableId}`);
 
@@ -202,7 +240,15 @@ app.prepare().then(() => {
       });
     });
 
-    // ✅ Handle connection health check
+    // Health check and utilities
+    socket.on("ping", () => {
+      socket.emit("pong", { message: "pong", timestamp: new Date() });
+    });
+
+    socket.on("hello", () => {
+      socket.emit("hello", "Hello from server!");
+    });
+
     socket.on("healthCheck", () => {
       socket.emit("healthResponse", {
         status: "ok",
@@ -211,11 +257,10 @@ app.prepare().then(() => {
       });
     });
 
-    // ✅ Handle disconnection
+    // Disconnection handling
     socket.on("disconnect", (reason) => {
       console.log(`❌ User disconnected: ${socket.id}, reason: ${reason}`);
 
-      // ✅ Notify rooms about disconnection
       if (socket.data.tableId) {
         socket.to(`table-${socket.data.tableId}`).emit("userDisconnected", {
           tableId: socket.data.tableId,
@@ -229,35 +274,26 @@ app.prepare().then(() => {
         });
       }
 
-      // Update connection status for remaining clients
       socket.broadcast.emit("connectionStatus", {
         connected: true,
         clientsCount: Math.max(0, io.engine.clientsCount - 1),
       });
     });
 
-    // ✅ Error handling
+    // Error handling
     socket.on("error", (error) => {
       console.error(`🚨 Socket error for ${socket.id}:`, error);
     });
 
-    // ✅ Connection error handling
     socket.on("connect_error", (error) => {
       console.error(`🚨 Connection error for ${socket.id}:`, error);
     });
-
-    socket.on("joinTable", (tableId) => {
-      socket.join(tableId);
-    });
-    socket.on("joinDashboard", () => {
-      socket.join("dashboard");
-    });
   });
 
-  // ✅ Store io globally for API routes
+  // Store io globally for API routes
   global.io = io;
 
-  // ✅ Add helper functions for API routes
+  // Helper functions for API routes
   global.broadcastToTable = (tableId, eventName, data) => {
     console.log(`📡 Broadcasting ${eventName} to table-${tableId}:`, data);
     io.to(`table-${tableId}`).emit(eventName, {
@@ -279,11 +315,10 @@ app.prepare().then(() => {
     console.log(`🔌 Socket.IO server initialized`);
   });
 
-  // ✅ Graceful shutdown
+  // Graceful shutdown
   process.on("SIGTERM", () => {
     console.log("🛑 SIGTERM received, shutting down gracefully");
 
-    // ✅ Notify all clients about shutdown
     io.emit("serverShutdown", {
       message: "Server is shutting down",
       timestamp: new Date(),
@@ -294,7 +329,6 @@ app.prepare().then(() => {
     });
   });
 
-  // ✅ Handle uncaught exceptions
   process.on("uncaughtException", (error) => {
     console.error("🚨 Uncaught Exception:", error);
   });
