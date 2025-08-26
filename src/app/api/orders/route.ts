@@ -106,7 +106,7 @@ export async function POST(req: Request) {
         const newOrderEvent: NewOrderEvent = {
           orderId: newOrder.id,
           tableId: body.tableId,
-          tableName: `โต๊ะ ${table.number}`,
+          tableName: `โต๊ะ ${table?.number ?? ""}`,
           totalAmount,
           itemsCount: body.items.reduce((sum, item) => sum + item.quantity, 0),
           customerName: body.customerName,
@@ -116,6 +116,7 @@ export async function POST(req: Request) {
         const orderStatusEvent: OrderStatusEvent = {
           orderId: newOrder.id,
           status: "new",
+          tableId: body.tableId!,
           timestamp: new Date(),
         };
 

@@ -4,17 +4,22 @@ import { OrderStatus, TableStatus } from "@prisma/client";
 export interface NewOrderEvent {
   orderId: string;
   tableId: string;
-  tableName?: string;
+  tableName: string;
   totalAmount: number;
   itemsCount: number;
   customerName?: string;
   timestamp: Date;
 }
+// src/app/types/socket-event.ts
+export interface BillCreatedEvent {
+  billId: string;
+  totalAmount: number;
+}
 
 export interface OrderStatusEvent {
   orderId: string;
   status: OrderStatus;
-  tableId?: string;
+  tableId: string;
   timestamp: Date;
 }
 

@@ -1,6 +1,12 @@
 "use client";
 
-import React, { useEffect, useState, useCallback, useMemo } from "react";
+import React, {
+  useEffect,
+  useState,
+  useCallback,
+  useMemo,
+  useRef,
+} from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent } from "@/components/ui/card";
 import {
@@ -17,6 +23,7 @@ import {
   Wifi,
   WifiOff,
   Receipt,
+  Loader2,
 } from "lucide-react";
 import { TableManagement } from "../../components/tables/TableManagement";
 import { MenuManagement } from "../../components/menu/MenuManagement";
@@ -32,6 +39,7 @@ import {
   parseOrderStatus,
   parseTableStatus,
 } from "@/src/app/types/socket-event";
+import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 
 // Constants
 const API_ENDPOINTS = {
@@ -45,13 +53,32 @@ const OrdersDashboard: React.FC = () => {
   const [orders, setOrders] = useState<Order[]>([]);
   const [tables, setTables] = useState<Table[]>([]);
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [initialLoading, setInitialLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false); // แยก loading state
   const [error, setError] = useState<string | null>(null);
   const [lastRefresh, setLastRefresh] = useState<Date>(new Date());
   const [billedOrderIds, setBilledOrderIds] = useState<Set<string>>(new Set());
   const [autoRefresh, setAutoRefresh] = useState(true);
+  const [hasDataLoaded, setHasDataLoaded] = useState(false); // Track if data has been loaded at least once
 
   const { socket, isConnected } = useSocketContext();
+
+  // ✅ Use refs to prevent duplicate operations
+  const fetchDataRef = useRef<Promise<void> | null>(null);
+  const lastCheckoutRef = useRef<string>("");
+
+  const newOrderAudioRef = useRef<HTMLAudioElement | null>(null);
+  const checkoutAudioRef = useRef<HTMLAudioElement | null>(null);
+
+  useEffect(() => {
+    if (typeof window !== "undefined" && "Audio" in window) {
+      newOrderAudioRef.current = new Audio("/soundEffect.mp3");
+      newOrderAudioRef.current.volume = 0.7;
+
+      checkoutAudioRef.current = new Audio("/checkout.mp3");
+      checkoutAudioRef.current.volume = 0.7;
+    }
+  }, []);
 
   const todayOrders = useMemo(() => {
     const today = new Date();
@@ -75,7 +102,15 @@ const OrdersDashboard: React.FC = () => {
       servedOrders: todayOrders.filter((o) => o.status === "served").length,
       todayRevenue: todayOrders
         .filter((o) => o.status === "served")
-        .reduce((sum, order) => sum + order.totalAmount, 0),
+        .reduce((sum, order) => {
+          const orderTotal =
+            order.totalAmount ||
+            order.items.reduce(
+              (itemSum, item) => itemSum + item.menuItem.price * item.quantity,
+              0
+            );
+          return sum + orderTotal;
+        }, 0),
     }),
     [todayOrders]
   );
@@ -89,79 +124,147 @@ const OrdersDashboard: React.FC = () => {
     [tables]
   );
 
-  // API functions with better error handling
-  const fetchWithErrorHandling = async (url: string) => {
-    const response = await fetch(url);
-    if (!response.ok) {
-      throw new Error(`Failed to fetch ${url}: ${response.statusText}`);
-    }
-    return response.json();
-  };
+  // ✅ Improved fetchData - แยก loading states
+  const fetchData = useCallback(
+    async (isBackground = false) => {
+      // Prevent duplicate calls
+      if (fetchDataRef.current) {
+        return fetchDataRef.current;
+      }
 
-  const fetchExistingBills = useCallback(async () => {
-    try {
-      const bills: Array<{ orderIds: string[] }> = await fetchWithErrorHandling(
-        API_ENDPOINTS.BILLS
-      );
-      const billedIds = new Set<string>(bills.flatMap((bill) => bill.orderIds));
-      setBilledOrderIds(billedIds);
-    } catch (error) {
-      console.error("Failed to fetch existing bills:", error);
-      // Don't show error toast for bills as it's not critical
-    }
-  }, []);
+      const fetchPromise = (async () => {
+        try {
+          // Only show loading spinner for initial load or manual refresh
+          if (!isBackground) {
+            if (!hasDataLoaded) {
+              setInitialLoading(true);
+            } else {
+              setIsRefreshing(true);
+            }
+          }
 
-  const fetchData = useCallback(async () => {
-    try {
-      setLoading(true);
-      setError(null);
+          setError(null);
 
-      const [tablesData, menuData, ordersData, billsData] = await Promise.all([
-        fetchWithErrorHandling(API_ENDPOINTS.TABLES),
-        fetchWithErrorHandling(API_ENDPOINTS.MENU),
-        fetchWithErrorHandling(API_ENDPOINTS.ORDERS),
-        fetchWithErrorHandling(API_ENDPOINTS.BILLS),
-      ]);
+          const [tablesData, menuData, ordersData, billsData] =
+            await Promise.all([
+              fetch(API_ENDPOINTS.TABLES).then((res) => {
+                if (!res.ok)
+                  throw new Error(`Failed to fetch tables: ${res.statusText}`);
+                return res.json();
+              }),
+              fetch(API_ENDPOINTS.MENU).then((res) => {
+                if (!res.ok)
+                  throw new Error(`Failed to fetch menu: ${res.statusText}`);
+                return res.json();
+              }),
+              fetch(API_ENDPOINTS.ORDERS).then((res) => {
+                if (!res.ok)
+                  throw new Error(`Failed to fetch orders: ${res.statusText}`);
+                return res.json();
+              }),
+              fetch(API_ENDPOINTS.BILLS).then((res) => {
+                if (!res.ok)
+                  throw new Error(`Failed to fetch bills: ${res.statusText}`);
+                return res.json();
+              }),
+            ]);
 
-      setTables(tablesData);
-      setMenuItems(menuData);
-      setOrders(ordersData);
-      setLastRefresh(new Date());
+          setTables(tablesData);
+          setMenuItems(menuData);
+          setOrders(ordersData);
+          setLastRefresh(new Date());
+          setHasDataLoaded(true);
 
-      // Update billed order IDs
-      const billedIds = new Set<string>(
-        billsData.flatMap((bill: { orderIds: string[] }) => bill.orderIds)
-      );
-      setBilledOrderIds(billedIds);
-    } catch (err) {
-      const errorMessage =
-        err instanceof Error ? err.message : "Failed to fetch data";
-      console.error("Failed to fetch data:", err);
-      setError(errorMessage);
-      toast.error(errorMessage);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+          const billedIds = new Set<string>(
+            billsData.flatMap((bill: { orderIds: string[] }) => bill.orderIds)
+          );
+          setBilledOrderIds(billedIds);
 
-  // Socket event handlers
+          // Show success toast only for manual refresh
+          if (!isBackground && hasDataLoaded) {
+            toast.success("รีเฟรชข้อมูลสำเร็จ");
+          }
+        } catch (err) {
+          const errorMessage =
+            err instanceof Error ? err.message : "Failed to fetch data";
+          console.error("Failed to fetch data:", err);
+          setError(errorMessage);
+          toast.error(errorMessage);
+        } finally {
+          setInitialLoading(false);
+          setIsRefreshing(false);
+          fetchDataRef.current = null; // Reset ref
+        }
+      })();
+
+      fetchDataRef.current = fetchPromise;
+      return fetchPromise;
+    },
+    [hasDataLoaded]
+  );
+
+  const playSound = useCallback(
+    (type: "newOrder" | "checkout") => {
+      const audio =
+        type === "newOrder"
+          ? newOrderAudioRef.current
+          : checkoutAudioRef.current;
+      if (audio) {
+        audio.currentTime = 0;
+        audio.play().catch((err) => console.warn("เล่นเสียงไม่ได้", err));
+      }
+    },
+    [newOrderAudioRef, checkoutAudioRef]
+  );
+
+  // ✅ Socket event handlers with background updates
   const handleNewOrder = useCallback(
     (data: NewOrderEvent) => {
       toast.success(`ออเดอร์ใหม่จากโต๊ะ ${data.tableName || data.tableId}`, {
         description: `${data.itemsCount} รายการ - ฿${data.totalAmount}`,
+        duration: 5000, // แสดงนานขึ้น
       });
-      // Play notification sound
-      if ("Audio" in window) {
-        const audio = new Audio("/soundEffect.mp3");
-        audio.volume = 1;
+      playSound("newOrder");
 
-        audio.play().catch(() => {
-          console.warn("เสียงแจ้งเตือนถูก block โดย browser");
-        });
-      }
-      fetchData();
+      // Background update - ไม่แสดง loading
+      setTimeout(() => {
+        fetchData(true); // isBackground = true
+      }, 100);
     },
-    [fetchData]
+    [fetchData, playSound]
+  );
+
+  const handleTableCheckedOut = useCallback(
+    (data: {
+      tableId: string;
+      totalAmount: number;
+      timestamp?: string;
+      number: string;
+      tableName: string;
+    }) => {
+      // ✅ Prevent duplicate notifications
+      const checkoutKey = `${data.tableId}-${data.totalAmount}-${
+        data.timestamp || Date.now()
+      }`;
+      if (lastCheckoutRef.current === checkoutKey) {
+        return;
+      }
+      lastCheckoutRef.current = checkoutKey;
+
+      console.log("Table checked out:", data);
+      toast.info(`${data.tableName || `โต๊ะ ${data.number}`} เช็คเอาท์แล้ว`, {
+        description: `ยอดรวม ฿${data.totalAmount.toLocaleString()}`,
+        duration: 5000,
+      });
+
+      playSound("checkout");
+
+      // Background update
+      setTimeout(() => {
+        fetchData(true);
+      }, 500);
+    },
+    [fetchData, playSound]
   );
 
   const handleOrderStatusChanged = useCallback(
@@ -173,6 +276,7 @@ const OrdersDashboard: React.FC = () => {
     }) => {
       const parsedStatus = parseOrderStatus(data.status);
 
+      // Real-time update without API call
       setOrders((prev) =>
         prev.map((order) =>
           order.id === data.orderId ? { ...order, status: parsedStatus } : order
@@ -189,6 +293,7 @@ const OrdersDashboard: React.FC = () => {
     (data: { tableId: string; status: string; timestamp: Date }) => {
       const parsedStatus = parseTableStatus(data.status);
 
+      // Real-time update without API call
       setTables((prev) =>
         prev.map((table) =>
           table.id === data.tableId ? { ...table, status: parsedStatus } : table
@@ -200,26 +305,51 @@ const OrdersDashboard: React.FC = () => {
 
   const handleBillCreated = useCallback(() => {
     toast.success(`สร้างบิลสำเร็จ!`);
-    fetchExistingBills();
-  }, [fetchExistingBills]);
 
-  // Setup Socket.IO Event Listeners
+    // Background update for bills only
+    setTimeout(() => {
+      fetch(API_ENDPOINTS.BILLS)
+        .then((res) => res.json())
+        .then((bills) => {
+          const billedIds = new Set<string>(
+            bills.flatMap((bill: { orderIds: string[] }) => bill.orderIds)
+          );
+          setBilledOrderIds(billedIds);
+        })
+        .catch(console.error);
+    }, 100);
+  }, []);
+
+  // ✅ Single useEffect for socket events
   useEffect(() => {
     if (!socket || !isConnected) return;
 
+    console.log("Setting up socket listeners...");
+
     socket.emit("joinDashboard");
 
+    // Remove existing listeners first
+    socket.off("newOrder");
+    socket.off("orderStatusChanged");
+    socket.off("tableStatusChanged");
+    socket.off("billCreated");
+    socket.off("tableCheckedOut");
+
+    // Add new listeners
     socket.on("newOrder", handleNewOrder);
     socket.on("orderStatusChanged", handleOrderStatusChanged);
     socket.on("tableStatusChanged", handleTableStatusChanged);
     socket.on("billCreated", handleBillCreated);
+    socket.on("tableCheckedOut", handleTableCheckedOut);
 
     return () => {
+      console.log("Cleaning up socket listeners...");
       socket.emit("leaveDashboard");
-      socket.off("newOrder", handleNewOrder);
-      socket.off("orderStatusChanged", handleOrderStatusChanged);
-      socket.off("tableStatusChanged", handleTableStatusChanged);
-      socket.off("billCreated", handleBillCreated);
+      socket.off("newOrder");
+      socket.off("orderStatusChanged");
+      socket.off("tableStatusChanged");
+      socket.off("billCreated");
+      socket.off("tableCheckedOut");
     };
   }, [
     socket,
@@ -228,11 +358,12 @@ const OrdersDashboard: React.FC = () => {
     handleOrderStatusChanged,
     handleTableStatusChanged,
     handleBillCreated,
+    handleTableCheckedOut,
   ]);
 
   // Initial data fetch
   useEffect(() => {
-    fetchData();
+    fetchData(false); // Initial load
   }, [fetchData]);
 
   const handleOrderStatusChange = useCallback(
@@ -240,6 +371,7 @@ const OrdersDashboard: React.FC = () => {
       try {
         const parsedStatus = parseOrderStatus(newStatus);
 
+        // Optimistic update
         setOrders((prevOrders) =>
           prevOrders.map((order) =>
             order.id === orderId ? { ...order, status: parsedStatus } : order
@@ -253,19 +385,11 @@ const OrdersDashboard: React.FC = () => {
         });
 
         if (!response.ok) {
-          // ✅ Revert the optimistic update on error
-          const updatedOrder = await response.json();
-          setOrders((prevOrders) =>
-            prevOrders.map((order) =>
-              order.id === orderId ? updatedOrder : order
-            )
-          );
           throw new Error(
             `Failed to update order status: ${response.statusText}`
           );
         }
 
-        // ✅ Get the updated order from server response
         const updatedOrder = await response.json();
         setOrders((prevOrders) =>
           prevOrders.map((order) =>
@@ -275,7 +399,6 @@ const OrdersDashboard: React.FC = () => {
 
         toast.success("อัปเดตสถานะออเดอร์สำเร็จ");
 
-        // ✅ Emit socket event to notify other clients (if your server supports this)
         if (socket && isConnected) {
           socket.emit("orderStatusUpdate", {
             orderId,
@@ -288,15 +411,14 @@ const OrdersDashboard: React.FC = () => {
         const errorMessage = "ไม่สามารถอัปเดตสถานะออเดอร์ได้";
         setError(errorMessage);
         toast.error(errorMessage);
-
-        // ✅ Revert optimistic update on error by refetching data
-        fetchData();
+        // Revert optimistic update
+        fetchData(true);
       }
     },
     [socket, isConnected, fetchData]
   );
 
-  // Menu item handlers
+  // Menu item handlers (unchanged)
   const handleAddMenuItem = useCallback(
     async (newMenuItem: Omit<MenuItem, "id">) => {
       try {
@@ -372,7 +494,10 @@ const OrdersDashboard: React.FC = () => {
   }, []);
 
   const handleCheckoutComplete = useCallback(async () => {
-    await fetchData();
+    // Background update
+    setTimeout(() => {
+      fetchData(true);
+    }, 300);
   }, [fetchData]);
 
   // Get tables with pending orders
@@ -407,13 +532,14 @@ const OrdersDashboard: React.FC = () => {
     return Math.round(totalMinutes / activeOrders.length);
   }, [todayOrders]);
 
-  if (loading) {
+  // Show initial loading only
+  if (initialLoading) {
     return (
       <div className="container mx-auto p-6">
         <div className="flex justify-center items-center h-64">
           <div className="text-center">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
-            <p>กำลังโหลดข้อมูล...</p>
+            <p>กำลังโหลดข้อมูลครั้งแรก...</p>
           </div>
         </div>
       </div>
@@ -423,10 +549,11 @@ const OrdersDashboard: React.FC = () => {
   return (
     <div className="container mx-auto p-6 space-y-6">
       {/* Header */}
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-4">
+        {/* ซ้าย */}
         <div>
-          <h1 className="text-3xl font-bold">ระบบจุดขาย (POS)</h1>
-          <div className="flex items-center gap-4 mt-1 text-sm text-gray-600">
+          <h1 className="text-2xl md:text-3xl font-bold">ระบบจุดขาย (POS)</h1>
+          <div className="flex flex-wrap items-center gap-2 md:gap-4 mt-1 text-sm text-gray-600">
             <span className="flex items-center gap-1">
               <Calendar className="w-4 h-4" />
               {new Date().toLocaleDateString("th-TH")}
@@ -449,12 +576,22 @@ const OrdersDashboard: React.FC = () => {
               )}
               {isConnected ? "เชื่อมต่อแล้ว" : "ไม่เชื่อมต่อ"}
             </span>
+
+            {/* Background refresh indicator */}
+            {isRefreshing && (
+              <span className="flex items-center gap-1 px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs">
+                <Loader2 className="w-3 h-3 animate-spin" />
+                กำลังซิงค์...
+              </span>
+            )}
           </div>
         </div>
-        <div className="flex gap-2">
+
+        {/* ขวา */}
+        <div className="flex flex-wrap gap-2">
           <button
             onClick={() => setAutoRefresh(!autoRefresh)}
-            className={`px-4 py-2 rounded-md text-sm ${
+            className={`px-3 py-2 rounded-md text-sm flex-1 sm:flex-none ${
               autoRefresh
                 ? "bg-green-500 text-white hover:bg-green-600"
                 : "bg-gray-300 text-gray-700 hover:bg-gray-400"
@@ -462,18 +599,22 @@ const OrdersDashboard: React.FC = () => {
           >
             {autoRefresh ? "Auto-refresh ON" : "Auto-refresh OFF"}
           </button>
+
           <button
-            onClick={fetchData}
-            disabled={loading}
-            className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
+            onClick={() => fetchData(false)} // Manual refresh
+            disabled={isRefreshing || !!fetchDataRef.current}
+            className="px-3 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 flex-1 sm:flex-none"
           >
             <RefreshCw
-              className={`w-4 h-4 mr-2 ${loading ? "animate-spin" : ""}`}
+              className={`w-4 h-4 ${
+                isRefreshing || fetchDataRef.current ? "animate-spin" : ""
+              }`}
             />
             รีเฟรช
           </button>
+
           {todayStats.newOrders > 0 && (
-            <div className="flex items-center px-3 py-2 bg-red-500 text-white rounded-md animate-pulse">
+            <div className="flex items-center px-3 py-2 bg-red-500 text-white rounded-md animate-pulse flex-1 sm:flex-none">
               <Bell className="w-4 h-4 mr-2" />
               {todayStats.newOrders} ออเดอร์ใหม่
             </div>
@@ -491,7 +632,7 @@ const OrdersDashboard: React.FC = () => {
             </div>
             <button
               onClick={() => setError(null)}
-              className="text-red-600  hover:text-red-800 underline text-sm"
+              className="text-red-600 hover:text-red-800 underline text-sm"
             >
               ปิด
             </button>
@@ -659,25 +800,52 @@ const OrdersDashboard: React.FC = () => {
         </Card>
       )}
 
-      {/* Main Content Tabs */}
-      <Tabs defaultValue="today-orders" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-5">
-          <TabsTrigger value="today-orders">
-            ออเดอร์วันนี้
-            {todayStats.totalOrders > 0 && (
-              <span className="ml-2 px-2 py-0.5 bg-blue-100 text-blue-800 rounded-full text-xs">
-                {todayStats.totalOrders}
-              </span>
-            )}
-          </TabsTrigger>
-          <TabsTrigger value="all-orders">ออเดอร์ทั้งหมด</TabsTrigger>
-          <TabsTrigger value="tables">จัดการโต๊ะ</TabsTrigger>
-          <TabsTrigger value="menu">จัดการเมนู</TabsTrigger>
-          <TabsTrigger value="bills">
-            บิล/รายได้
-            <Receipt className="w-4 h-4 ml-1" />
-          </TabsTrigger>
-        </TabsList>
+      <Tabs defaultValue="today-orders" className="space-y-6 w-full">
+        <ScrollArea className="w-full">
+          <TabsList className="flex gap-2 w-max">
+            <TabsTrigger
+              value="today-orders"
+              className="flex-shrink-0 min-w-fit whitespace-nowrap px-4"
+            >
+              ออเดอร์วันนี้
+              {todayStats.totalOrders > 0 && (
+                <span className="ml-2 px-2 py-0.5 bg-blue-100 text-blue-800 rounded-full text-xs">
+                  {todayStats.totalOrders}
+                </span>
+              )}
+            </TabsTrigger>
+
+            <TabsTrigger
+              value="all-orders"
+              className="flex-shrink-0 min-w-fit whitespace-nowrap px-4"
+            >
+              ออเดอร์ทั้งหมด
+            </TabsTrigger>
+
+            <TabsTrigger
+              value="tables"
+              className="flex-shrink-0 min-w-fit whitespace-nowrap px-4"
+            >
+              จัดการโต๊ะ
+            </TabsTrigger>
+
+            <TabsTrigger
+              value="menu"
+              className="flex-shrink-0 min-w-fit whitespace-nowrap px-4"
+            >
+              จัดการเมนู
+            </TabsTrigger>
+
+            <TabsTrigger
+              value="bills"
+              className="flex-shrink-0 min-w-fit whitespace-nowrap px-4"
+            >
+              บิล/รายได้
+              <Receipt className="w-4 h-4 ml-1" />
+            </TabsTrigger>
+          </TabsList>
+          <ScrollBar orientation="horizontal" />
+        </ScrollArea>
 
         <TabsContent value="today-orders">
           <OrdersOverview

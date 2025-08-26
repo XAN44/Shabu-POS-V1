@@ -15,8 +15,12 @@ export default auth((req) => {
   const isLoggedIn = !!req.auth;
 
   // Paths ที่อนุญาตให้เข้าถึงได้โดยไม่ต้องล็อกอิน
-  const publicApiRoutes = ["/api/tables", "/api/menu", "/api/orders"];
-
+  const publicApiRoutes = [
+    "/api/tables",
+    "/api/menu",
+    "/api/orders",
+    "/api/draft-cart", // ✅ ให้ guest ใช้ได้
+  ];
   const isApiAuthRoute = nextUrl.pathname.startsWith(apiAuthPrefix);
   const isPublicRoute =
     publicRoutes.includes(nextUrl.pathname) ||
@@ -34,7 +38,6 @@ export default auth((req) => {
     return null;
   }
 
-  // หากไม่ได้ล็อกอินและไม่ใช่เส้นทางสาธารณะ ให้ Redirect ไปที่หน้าล็อกอิน
   if (!isLoggedIn && !isPublicRoute) {
     return Response.redirect(new URL("/auth/login", nextUrl));
   }

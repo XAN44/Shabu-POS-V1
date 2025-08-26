@@ -61,6 +61,7 @@ export async function PATCH(
           orderId: id,
           status: body.status,
           timestamp: new Date(),
+          tableId: existingOrder.tableId,
         };
 
         const tableStatusEvent: TableStatusEvent = {
@@ -144,6 +145,7 @@ export async function DELETE(
           orderId: id,
           status: "cancelled",
           timestamp: new Date(),
+          tableId: existingOrder.tableId,
         };
 
         const tableStatusEvent: TableStatusEvent = {
@@ -164,6 +166,7 @@ export async function DELETE(
             orderId: id,
             status: "cancelled",
             timestamp: new Date(),
+            tableId: existingOrder.tableId,
           });
 
         // แจ้งการเปลี่ยนสถานะโต๊ะ
@@ -189,24 +192,32 @@ export async function DELETE(
     );
   }
 }
-
 export async function GET(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const tableId = await params;
+  const { id } = await params;
 
   try {
+    const table = await db.table.findUnique({
+      where: { id },
+      select: { lastClearedAt: true },
+    });
+
+    if (!table) {
+      return NextResponse.json({ error: "ไม่พบโต๊ะนี้" }, { status: 404 });
+    }
+
     const orders = await db.order.findMany({
       where: {
-        tableId: tableId.id,
-        NOT: {
-          status: "served",
-        },
+        tableId: id,
+        createdAt: { gt: table.lastClearedAt },
       },
       select: {
         id: true,
         status: true,
+        totalAmount: true,
+        orderTime: true,
         items: {
           select: {
             menuItem: true,
@@ -215,25 +226,14 @@ export async function GET(
           },
         },
       },
-      orderBy: {
-        orderTime: "asc", // เรียงตามเวลาที่สั่ง เพื่อแสดงออเดอร์เก่าก่อน
-      },
+      orderBy: { orderTime: "asc" },
     });
-
-    if (!orders || orders.length === 0) {
-      return NextResponse.json({ message: "ไม่พบออเดอร์บนโต๊ะนี้" });
-    }
-
-    // ไม่ต้อง emit socket ตรงนี้ เพราะการ emit ควรทำหลังจากการสร้าง/อัปเดตออเดอร์
-    // และการเรียก GET นี้จะถูกใช้แค่ตอนโหลดหน้าเว็บครั้งแรก
 
     return NextResponse.json(orders);
   } catch (error) {
     console.error("GET /api/orders/[id] failed:", error);
     return NextResponse.json(
-      {
-        error: error instanceof Error ? error.message : "Failed to get orders",
-      },
+      { error: "Failed to get orders" },
       { status: 500 }
     );
   }

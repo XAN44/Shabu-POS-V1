@@ -1,4 +1,6 @@
-import { Order } from "./Order";
+// types/socket.ts - Updated with proper typing
+
+import { Order } from "@prisma/client";
 
 export interface ServerToClientEvents {
   hello: (data: string) => void;
@@ -8,10 +10,10 @@ export interface ServerToClientEvents {
     clientsCount: number;
   }) => void;
 
-  // Order-related events
   newOrder: (data: {
     orderId: string;
     tableId: string;
+    tableName: string; // Make this required
     totalAmount: number;
     itemsCount: number;
     customerName?: string;
@@ -28,17 +30,16 @@ export interface ServerToClientEvents {
   orderStatusUpdated: (data: {
     orderId: string;
     status: string;
+    tableId: string;
     timestamp: Date;
   }) => void;
 
-  // Table-related events - ADD MISSING EVENT
   tableStatusChanged: (data: {
     tableId: string;
     status: string;
     timestamp: Date;
   }) => void;
 
-  // ADD MISSING tableOrdersUpdate EVENT
   tableOrdersUpdate: (data: {
     tableId: string;
     message: string;
@@ -46,10 +47,28 @@ export interface ServerToClientEvents {
   }) => void;
 
   billCreated: (data: { billId: string; totalAmount: number }) => void;
+
+  // Fixed tableCheckedOut event type
+  tableCheckedOut: (data: {
+    tableId: string;
+    totalAmount: number;
+    orders: Order[];
+    number: string;
+    tableName: string; // Make this required
+    timestamp: string; // Add timestamp for deduplication
+  }) => void;
+
+  checkoutConfirmed: (data: {
+    tableId: string;
+    message: string;
+    timestamp: Date;
+  }) => void;
+
+  ordersUpdated: (orders: Order[]) => void;
 }
 
 export interface ClientToServerEvents {
-  hello: () => void;
+  hello: (data: string) => void;
   ping: () => void;
 
   // Room management
@@ -58,60 +77,33 @@ export interface ClientToServerEvents {
   joinDashboard: () => void;
   leaveDashboard: () => void;
 
-  // Order events
+  orderStatusUpdated: (data: {
+    orderId: string;
+    status: string;
+    tableId: string;
+    timestamp: Date;
+  }) => void;
+
+  // Order management
   orderStatusUpdate: (data: {
     orderId: string;
     status: string;
     tableId: string;
   }) => void;
 
-  // ADD MISSING EVENTS FROM YOUR SERVER CODE
-  newOrderNotification: (data: {
-    orderId: string;
+  // Fixed checkoutTable event type
+  checkoutTable: (data: {
     tableId: string;
     totalAmount: number;
-    itemsCount: number;
-    customerName?: string;
+    orders: Order[];
+    number: string;
+    tableName: string; // Make this required
+    timestamp: string; // Add timestamp for deduplication
   }) => void;
-
-  tableStatusUpdate: (data: { tableId: string; status: string }) => void;
-
-  requestTableOrders: (tableId: string) => void;
-}
-
-export interface InterServerEvents {
-  ping: () => void;
 }
 
 export interface SocketData {
   userId?: string;
-  username?: string;
-  tableId?: string;
+  tableId: string;
   role?: "customer" | "dashboard";
-}
-
-// More specific event data types
-export interface OrderStatusEvent {
-  orderId: string;
-  status: "new" | "preparing" | "ready" | "served" | "cancelled";
-  timestamp: Date;
-}
-
-export interface TableStatusEvent {
-  tableId: string;
-  status: string;
-  timestamp: Date;
-}
-
-export interface BillCreatedEvent {
-  billId: string;
-  totalAmount: number;
-}
-
-// More specific order status change event
-export interface OrderStatusChangeEvent {
-  orderId: string;
-  status: "new" | "preparing" | "ready" | "served" | "cancelled";
-  tableId: string;
-  timestamp: Date;
 }

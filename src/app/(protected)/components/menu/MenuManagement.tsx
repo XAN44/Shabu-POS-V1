@@ -110,6 +110,7 @@ export const MenuManagement: React.FC<MenuManagementProps> = ({
         const uploadResult = await response.json();
         imageUrl = uploadResult.data.secure_url;
         imageKey = uploadResult.data.public_id;
+        setShowAddDialog(false);
       } catch (error) {
         console.error("Failed to upload image:", error);
         toast.error("ไม่สามารถอัปโหลดรูปภาพได้");

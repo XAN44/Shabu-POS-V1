@@ -46,6 +46,7 @@ export const TableManagement: React.FC = () => {
     });
     const newTable = await res.json();
     setTables([...tables, newTable]);
+    setShowAddDialog(false); // ปิด dialog
   };
 
   const handleEdit = (tableId: string) => {
@@ -72,6 +73,7 @@ export const TableManagement: React.FC = () => {
     });
     const updated = await res.json();
     setTables(tables.map((t) => (t.id === updated.id ? updated : t)));
+    setShowEditDialog(false); // ปิด dialog
   };
   const handleDelete = (tableId: string) => {
     setDeletingTableId(tableId);

@@ -1,8 +1,10 @@
 // src/app/api/tables/[id]/checkout/route.ts
 import { NextResponse } from "next/server";
 import { TableStatus } from "@prisma/client";
-import { TableStatusEvent } from "@/src/app/types/socket-event";
-import { BillCreatedEvent } from "@/src/app/types/socket";
+import {
+  BillCreatedEvent,
+  TableStatusEvent,
+} from "@/src/app/types/socket-event";
 import db from "@/src/app/lib/prismaClient";
 
 export async function PATCH(
@@ -13,8 +15,6 @@ export async function PATCH(
     // Await params before accessing properties (Next.js 15+ requirement)
     const resolvedParams = await params;
     const tableId = resolvedParams.id;
-
-    console.log("Checkout attempt for table:", tableId);
 
     // Check if there are any existing bills for orders from this table
     const existingBills = await db.bill.findMany({
@@ -104,12 +104,11 @@ export async function PATCH(
         },
       });
 
-      // Only update table status to available if there are no remaining unbilled orders
       let updatedTable = null;
       if (remainingOrders.length === 0) {
         updatedTable = await tx.table.update({
           where: { id: tableId },
-          data: { status: TableStatus.available },
+          data: { status: TableStatus.available, lastClearedAt: new Date() },
           select: {
             id: true,
             number: true,
@@ -132,7 +131,6 @@ export async function PATCH(
       return { bill: newBill, table: updatedTable };
     });
 
-    // Emit Socket.IO events if available
     if (typeof global !== "undefined" && global.io) {
       try {
         // Only emit table status change if table was actually set to available
@@ -147,17 +145,26 @@ export async function PATCH(
             .emit("tableStatusChanged", tableStatusEvent);
         }
 
+        global.io.to("dashboard").emit("tableCheckedOut", {
+          tableId,
+          totalAmount: result.bill.totalAmount,
+          orders: ordersToBill, // ให้ครบตาม type
+          number: String(result.table?.number ?? ""),
+          tableName: `โต๊ะ ${result.table?.number ?? ""}`,
+          timestamp: new Date().toISOString(),
+        });
+
         // Bill created event
         const billCreatedEvent: BillCreatedEvent = {
           billId: result.bill.id,
           totalAmount: result.bill.totalAmount,
         };
+
         global.io.to(`table-${tableId}`).emit("billCreated", billCreatedEvent);
 
         console.log("Socket events emitted successfully");
       } catch (socketError) {
         console.warn("Socket.IO emission failed:", socketError);
-        // Don't fail the entire operation if socket emission fails
       }
     }
 
@@ -193,6 +200,26 @@ export async function PATCH(
         error: "Failed to process checkout",
         details: error instanceof Error ? error.message : "Unknown error",
       },
+      { status: 500 }
+    );
+  }
+}
+
+export async function POST(
+  req: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const { id } = await params;
+  try {
+    await db.table.update({
+      where: { id },
+      data: { lastClearedAt: new Date() },
+    });
+    return NextResponse.json({ message: "เคลียร์โต๊ะเรียบร้อย" });
+  } catch (error) {
+    console.error("POST /api/tables/[id]/clear failed:", error);
+    return NextResponse.json(
+      { error: "Failed to clear table" },
       { status: 500 }
     );
   }

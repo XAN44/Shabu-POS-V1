@@ -32,43 +32,30 @@ app.prepare().then(() => {
   io.on("connection", (socket) => {
     console.log(`✅ User connected: ${socket.id}`);
 
-    // ✅ Send connection status
-    socket.emit("connectionStatus", {
-      connected: true,
-      clientsCount: io.engine.clientsCount,
-    });
-
-    // ✅ Handle dashboard joining
     socket.on("joinDashboard", () => {
-      console.log(`🖥️ Socket ${socket.id} joining dashboard room`);
       socket.join("dashboard");
       socket.data.role = "dashboard";
-      socket.emit("hello", "Joined dashboard room");
-
-      // ✅ ส่งข้อมูลปัจจุบันให้ dashboard
-      socket.emit("dashboardConnected", {
-        message: "Connected to dashboard",
-        timestamp: new Date(),
-      });
+      console.log(`🖥️ ${socket.id} joined dashboard`);
     });
 
-    // ✅ Handle table joining for customers
-    socket.on("joinTable", (tableId) => {
-      console.log(
-        `📋 Socket ${socket.id} joining table room: table-${tableId}`
-      );
-      socket.join(`table-${tableId}`);
-      socket.data.tableId = tableId;
-      socket.data.role = "customer";
-      socket.emit("hello", `Joined table room: table-${tableId}`);
+    socket.on(
+      "checkoutTable",
+      ({ tableId, totalAmount, orders, number, tableName }) => {
+        const tableNumber = number ?? "ไม่ระบุ";
+        const finalTableName = tableName ?? `โต๊ะ ${tableNumber}`;
 
-      // ✅ ส่งสถานะปัจจุบันให้ลูกค้า
-      socket.emit("tableConnected", {
-        tableId,
-        message: "Connected to table room",
-        timestamp: new Date(),
-      });
-    });
+        console.log(`📤 Broadcasting tableCheckedOut for table ${tableNumber}`);
+
+        io.to("dashboard").emit("tableCheckedOut", {
+          tableId,
+          totalAmount,
+          orders,
+          number: tableNumber,
+          tableName: finalTableName,
+          timestamp: new Date().toISOString(),
+        });
+      }
+    );
 
     // ✅ Handle room leaving
     socket.on("leaveTable", (tableId) => {
@@ -96,8 +83,6 @@ app.prepare().then(() => {
 
     // ✅ Handle order status updates from clients (mainly for dashboard)
     socket.on("orderStatusUpdate", (data) => {
-      console.log(`📝 Order status update received:`, data);
-
       const broadcastData = {
         orderId: data.orderId,
         status: data.status,

@@ -20,7 +20,6 @@ import {
   CheckCircle2,
   AlertCircle,
   Clock,
-  DollarSign,
   Info,
 } from "lucide-react";
 import { Table, Order } from "@/src/app/types/Order";
@@ -62,12 +61,12 @@ export const CheckoutButton: React.FC<CheckoutButtonProps> = ({
     } finally {
       setLoading(false);
     }
-  }, [table.id]); // 👈 table.id เป็น dependency ที่แท้จริง
+  }, [table.id]);
 
   // ดึงข้อมูลบิลเมื่อ component mount หรือเมื่อเปิด dialog
   useEffect(() => {
     fetchExistingBills();
-  }, [fetchExistingBills]); // ✅ ปลอดภัยและ clean
+  }, [fetchExistingBills]);
 
   // กรองออเดอร์ที่ยังไม่ได้เช็คบิล (ไม่รวมออเดอร์ที่ยกเลิกและออเดอร์ที่เช็คบิลแล้ว)
   const pendingOrders = orders.filter(
@@ -204,35 +203,43 @@ export const CheckoutButton: React.FC<CheckoutButtonProps> = ({
           }
           size="sm"
           disabled={disabled || isProcessing || loading}
-          className={`${
-            !hasOrdersToCheckout
-              ? "bg-gray-100 text-gray-600 hover:bg-gray-200"
-              : hasIncompleteOrders
-              ? "border-orange-200 text-orange-700 hover:bg-orange-50"
-              : "bg-green-600 hover:bg-green-700 text-white"
-          }`}
+          className={`min-w-0 flex-shrink-0
+    ${
+      !hasOrdersToCheckout
+        ? "bg-gray-100 text-gray-600 hover:bg-gray-200"
+        : hasIncompleteOrders
+        ? "border-orange-200 text-orange-700 hover:bg-orange-50"
+        : "bg-green-600 hover:bg-green-700 text-white"
+    }`}
         >
-          <Receipt className="w-4 h-4 mr-2" />
-          {!hasOrdersToCheckout
-            ? "เช็คบิลแล้ว"
-            : hasIncompleteOrders
-            ? "เช็คบิล (รอ)"
-            : "เช็คบิล"}
+          <Receipt className="w-3 h-3 xs:w-4 xs:h-4 mr-1 xs:mr-2 flex-shrink-0" />
+          <span className="hidden xs:inline">
+            {!hasOrdersToCheckout
+              ? "เช็คบิลแล้ว"
+              : hasIncompleteOrders
+              ? "เช็คบิล (รอ)"
+              : "เช็คบิล"}
+          </span>
+          <span className="xs:hidden text-xs">
+            {!hasOrdersToCheckout ? "แล้ว" : hasIncompleteOrders ? "รอ" : "บิล"}
+          </span>
           {hasOrdersToCheckout && (
-            <span className="ml-2 px-2 py-0.5 bg-white bg-opacity-20 rounded-full text-xs">
+            <span className="hidden xs:inline ml-1 px-2 py-0.5 bg-white bg-opacity-20 rounded-full text-xs">
               ฿{totalAmount.toLocaleString()}
             </span>
           )}
         </Button>
       </DialogTrigger>
 
-      <DialogContent className="max-w-md">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <CreditCard className="w-5 h-5" />
-            เช็คบิลโต๊ะ {table.number}
+      <DialogContent className="w-[98vw] sm:w-[95vw] md:w-[90vw] lg:w-[85vw] xl:w-[80vw] 2xl:max-w-6xl max-h-[95vh] sm:max-h-[90vh] overflow-y-auto p-3 sm:p-4 md:p-6">
+        <DialogHeader className="space-y-2 sm:space-y-3">
+          <DialogTitle className="flex items-center gap-2 text-base sm:text-lg md:text-xl lg:text-2xl">
+            <CreditCard className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 flex-shrink-0" />
+            <span className="truncate font-bold">
+              เช็คบิลโต๊ะ {table.number}
+            </span>
           </DialogTitle>
-          <DialogDescription>
+          <DialogDescription className="text-xs sm:text-sm md:text-base text-gray-600">
             {hasOrdersToCheckout
               ? "รวมบิลออเดอร์ที่ยังไม่ได้เช็คบิลในโต๊ะนี้"
               : "ออเดอร์ทั้งหมดในโต๊ะนี้เช็คบิลแล้ว"}
@@ -240,52 +247,38 @@ export const CheckoutButton: React.FC<CheckoutButtonProps> = ({
         </DialogHeader>
 
         {loading ? (
-          <div className="text-center py-6">
-            <Loader2 className="w-8 h-8 animate-spin mx-auto mb-2 text-blue-500" />
-            <p className="text-gray-600">กำลังโหลดข้อมูล...</p>
+          <div className="text-center py-8 lg:py-12">
+            <Loader2 className="w-8 h-8 lg:w-12 lg:h-12 animate-spin mx-auto mb-3 text-blue-500" />
+            <p className="text-gray-600 text-sm lg:text-base">
+              กำลังโหลดข้อมูล...
+            </p>
           </div>
         ) : checkoutComplete ? (
-          <div className="text-center py-6">
-            <CheckCircle2 className="w-12 h-12 text-green-500 mx-auto mb-4" />
-            <h3 className="text-lg font-semibold text-green-700 mb-2">
+          <div className="text-center py-8 lg:py-12">
+            <CheckCircle2 className="w-12 h-12 lg:w-16 lg:h-16 text-green-500 mx-auto mb-4" />
+            <h3 className="text-lg lg:text-xl font-semibold text-green-700 mb-2">
               เช็คบิลสำเร็จ!
             </h3>
-            <p className="text-gray-600">
+            <p className="text-gray-600 text-sm lg:text-base">
               เช็คบิลออเดอร์ที่รออยู่เรียบร้อยแล้ว
             </p>
           </div>
         ) : (
-          <div className="space-y-4">
+          <div className="space-y-4 lg:space-y-6">
             {/* สรุปยอดที่ต้องเช็คบิล */}
             {hasOrdersToCheckout && (
               <Card className="bg-blue-50 border-blue-200">
-                <CardContent className="p-4">
-                  <div className="flex justify-between items-center mb-2">
-                    <span className="font-semibold">ยอดที่ต้องเช็คบิล</span>
-                    <span className="text-2xl font-bold text-blue-700">
+                <CardContent className="p-3 lg:p-4">
+                  <div className="flex flex-col xs:flex-row xs:justify-between xs:items-center gap-2 mb-2">
+                    <span className="font-semibold text-sm lg:text-base">
+                      ยอดที่ต้องเช็คบิล
+                    </span>
+                    <span className="text-xl lg:text-2xl xl:text-3xl font-bold text-blue-700">
                       ฿{totalAmount.toLocaleString()}
                     </span>
                   </div>
-                  <div className="text-sm text-gray-600">
+                  <div className="text-xs lg:text-sm text-gray-600">
                     {pendingOrders.length} ออเดอร์ • {totalItems} รายการ
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-
-            {/* แสดงข้อมูลออเดอร์ที่เช็คบิลแล้ว */}
-            {billedOrders.length > 0 && (
-              <Card className="bg-green-50 border-green-200">
-                <CardContent className="p-4">
-                  <div className="flex items-center gap-2 text-green-700 mb-2">
-                    <CheckCircle2 className="w-5 h-5" />
-                    <span className="font-semibold">เช็คบิลแล้ว</span>
-                  </div>
-                  <div className="text-sm text-green-600">
-                    {billedOrders.length} ออเดอร์ • ฿
-                    {billedOrders
-                      .reduce((sum, order) => sum + order.totalAmount, 0)
-                      .toLocaleString()}
                   </div>
                 </CardContent>
               </Card>
@@ -294,14 +287,14 @@ export const CheckoutButton: React.FC<CheckoutButtonProps> = ({
             {/* ไม่มีออเดอร์ที่ต้องเช็คบิล */}
             {!hasOrdersToCheckout && (
               <Card className="bg-gray-50 border-gray-200">
-                <CardContent className="p-4">
+                <CardContent className="p-3 lg:p-4">
                   <div className="flex items-center gap-2 text-gray-600">
-                    <Info className="w-5 h-5" />
-                    <span className="font-semibold">
+                    <Info className="w-4 h-4 lg:w-5 lg:h-5 flex-shrink-0" />
+                    <span className="font-semibold text-sm lg:text-base">
                       ไม่มีออเดอร์ที่ต้องเช็คบิล
                     </span>
                   </div>
-                  <p className="text-sm text-gray-500 mt-1">
+                  <p className="text-xs lg:text-sm text-gray-500 mt-1">
                     ออเดอร์ทั้งหมดในโต๊ะนี้ได้เช็คบิลไปแล้ว
                   </p>
                 </CardContent>
@@ -311,33 +304,42 @@ export const CheckoutButton: React.FC<CheckoutButtonProps> = ({
             {/* แจ้งเตือนถ้ายังมีออเดอร์ไม่เสร็จ */}
             {hasIncompleteOrders && (
               <Card className="bg-orange-50 border-orange-200">
-                <CardContent className="p-4">
-                  <div className="flex items-center gap-2 text-orange-700">
-                    <AlertCircle className="w-5 h-5" />
-                    <span className="font-semibold">คำเตือน</span>
+                <CardContent className="p-3 lg:p-4">
+                  <div className="flex items-start gap-2 text-orange-700">
+                    <AlertCircle className="w-4 h-4 lg:w-5 lg:h-5 flex-shrink-0 mt-0.5" />
+                    <div>
+                      <span className="font-semibold text-sm lg:text-base block">
+                        คำเตือน
+                      </span>
+                      <p className="text-xs lg:text-sm text-orange-600 mt-1">
+                        ยังมีออเดอร์ที่ยังไม่เสร็จสิ้น
+                        การเช็คบิลจะอัปเดตออเดอร์ทั้งหมดให้เป็น
+                        &quot;เสิร์ฟแล้ว&quot;
+                      </p>
+                    </div>
                   </div>
-                  <p className="text-sm text-orange-600 mt-1">
-                    ยังมีออเดอร์ที่ยังไม่เสร็จสิ้น
-                    การเช็คบิลจะอัปเดตออเดอร์ทั้งหมดให้เป็น
-                    &quot;เสิร์ฟแล้ว&quot;
-                  </p>
                 </CardContent>
               </Card>
             )}
 
             {/* รายละเอียดออเดอร์ที่ยังไม่เช็คบิล */}
-            {pendingOrders.length > 0 && (
-              <div className="max-h-60 overflow-y-auto space-y-2">
-                <h4 className="font-medium text-gray-700 mb-2">
-                  ออเดอร์ที่ต้องเช็คบิล:
-                </h4>
+            <div>
+              <h2 className="text-base lg:text-lg xl:text-xl font-semibold mb-3 lg:mb-4">
+                ออเดอร์ทั้งหมด: {pendingOrders.length} รายการ
+              </h2>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 lg:gap-4">
                 {pendingOrders.map((order) => (
-                  <Card key={order.id} className="border border-gray-200">
-                    <CardContent className="p-3">
-                      <div className="flex justify-between items-start mb-2">
-                        <div className="flex items-center gap-2">
-                          <Clock className="w-4 h-4 text-gray-500" />
-                          <span className="text-sm text-gray-600">
+                  <Card
+                    key={order.id}
+                    className="border border-gray-200 hover:shadow-md transition-shadow"
+                  >
+                    <CardContent className="p-3 lg:p-4 flex flex-col h-full">
+                      {/* Header: เวลา + สถานะ */}
+                      <div className="flex justify-between items-start mb-3 gap-2">
+                        <div className="flex items-center gap-2 min-w-0 flex-1">
+                          <Clock className="w-3 h-3 lg:w-4 lg:h-4 text-gray-500 flex-shrink-0" />
+                          <span className="text-xs lg:text-sm text-gray-600 truncate">
                             {new Date(order.orderTime).toLocaleTimeString(
                               "th-TH",
                               {
@@ -348,28 +350,65 @@ export const CheckoutButton: React.FC<CheckoutButtonProps> = ({
                           </span>
                         </div>
                         <span
-                          className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(
+                          className={`px-2 py-1 rounded-full text-xs font-medium flex-shrink-0 ${getStatusColor(
                             order.status
                           )}`}
                         >
-                          {getStatusText(order.status)}
+                          <span className="hidden lg:inline">
+                            {getStatusText(order.status)}
+                          </span>
+                          <span className="lg:hidden">
+                            {order.status === "new"
+                              ? "ใหม่"
+                              : order.status === "preparing"
+                              ? "ทำ"
+                              : order.status === "ready"
+                              ? "เสร็จ"
+                              : order.status === "served"
+                              ? "ส่ง"
+                              : order.status}
+                          </span>
                         </span>
                       </div>
 
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm">
-                          {order.items?.length || 0} รายการ
+                      {/* รายการเมนู */}
+                      <div className="flex-1 overflow-hidden">
+                        <ul className="space-y-1 lg:space-y-2 text-xs lg:text-sm max-h-32 lg:max-h-40 overflow-y-auto">
+                          {order.items.map((item, index) => (
+                            <li
+                              key={`${item.menuItemId}-${index}`}
+                              className="flex justify-between items-start gap-2 border-b border-gray-100 pb-1 last:border-b-0"
+                            >
+                              <div className="min-w-0 flex-1">
+                                <div className="font-medium truncate">
+                                  {item.quantity} × {item.menuItem.name}
+                                </div>
+                                {item.notes && (
+                                  <div className="text-xs text-gray-500 mt-0.5 break-words">
+                                    ({item.notes})
+                                  </div>
+                                )}
+                              </div>
+                              <span className="font-medium flex-shrink-0">
+                                ฿{item.price.toLocaleString()}
+                              </span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+
+                      {/* Footer: จำนวนรวม + ยอดรวม */}
+                      <div className="flex justify-between items-center mt-3 pt-2 border-t border-gray-100 font-medium text-sm lg:text-base">
+                        <span className="text-gray-600">
+                          รวม {order.items.length} รายการ
                         </span>
-                        <div className="flex items-center gap-1">
-                          <DollarSign className="w-4 h-4 text-gray-500" />
-                          <span className="font-semibold">
-                            ฿{order.totalAmount.toLocaleString()}
-                          </span>
-                        </div>
+                        <span className="text-lg lg:text-xl font-bold">
+                          ฿{order.totalAmount.toLocaleString()}
+                        </span>
                       </div>
 
                       {order.customerName && (
-                        <p className="text-xs text-gray-500 mt-1">
+                        <p className="text-xs text-gray-500 mt-2 truncate">
                           ลูกค้า: {order.customerName}
                         </p>
                       )}
@@ -377,17 +416,18 @@ export const CheckoutButton: React.FC<CheckoutButtonProps> = ({
                   </Card>
                 ))}
               </div>
-            )}
+            </div>
           </div>
         )}
 
-        <DialogFooter>
+        <DialogFooter className="flex-col-reverse sm:flex-row gap-2 sm:gap-0">
           {!checkoutComplete && (
             <>
               <Button
                 variant="outline"
                 onClick={() => setIsOpen(false)}
                 disabled={isProcessing}
+                className="w-full sm:w-auto order-2 sm:order-1"
               >
                 {hasOrdersToCheckout ? "ยกเลิก" : "ปิด"}
               </Button>
@@ -395,16 +435,17 @@ export const CheckoutButton: React.FC<CheckoutButtonProps> = ({
                 <Button
                   onClick={handleCheckout}
                   disabled={isProcessing}
-                  className="bg-green-600 hover:bg-green-700"
+                  className="w-full sm:w-auto bg-green-600 hover:bg-green-700 order-1 sm:order-2"
                 >
                   {isProcessing ? (
                     <>
-                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      กำลังประมวลผล...
+                      <Loader2 className="w-3 h-3 lg:w-4 lg:h-4 mr-2 animate-spin" />
+                      <span className="hidden xs:inline">กำลังประมวลผล...</span>
+                      <span className="xs:hidden">กำลังดำเนินการ...</span>
                     </>
                   ) : (
                     <>
-                      <Receipt className="w-4 h-4 mr-2" />
+                      <Receipt className="w-3 h-3 lg:w-4 lg:h-4 mr-2" />
                       ยืนยันเช็คบิล
                     </>
                   )}

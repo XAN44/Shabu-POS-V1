@@ -93,27 +93,29 @@ model Authenticator {
 }
 
 model Table {
-  id     String      @id @default(cuid())
-  number Int
-  seats  Int
-  status TableStatus
-  qrCode String?
-  orders Order[]
-  Bill   Bill[]
+  id            String      @id @default(cuid())
+  number        Int
+  seats         Int
+  status        TableStatus
+  qrCode        String?
+  orders        Order[]
+  Bill          Bill[]
+  lastClearedAt DateTime    @default(now())
 
   @@map("tables")
 }
 
 model MenuItem {
-  id          String      @id @default(cuid())
-  name        String
-  price       Float
-  category    String
-  description String?
-  image       String? // URL ของภาพจาก UploadThing
-  imageKey    String? // Key ของไฟล์ใน UploadThing สำหรับการลบ
-  available   Boolean     @default(true)
-  orderItems  OrderItem[]
+  id            String          @id @default(cuid())
+  name          String
+  price         Float
+  category      String
+  description   String?
+  image         String? // URL ของภาพจาก UploadThing
+  imageKey      String? // Key ของไฟล์ใน UploadThing สำหรับการลบ
+  available     Boolean         @default(true)
+  orderItems    OrderItem[]
+  DraftCartItem DraftCartItem[]
 
   @@map("menu_items")
 }
@@ -189,4 +191,26 @@ enum OrderStatus {
   ready
   served
   cancelled
+}
+
+model DraftCart {
+  id        String          @id @default(cuid())
+  tableId   String
+  items     DraftCartItem[]
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+
+  @@unique([tableId]) // หนึ่งโต๊ะมี draft cart ได้แค่หนึ่งตัว
+}
+
+model DraftCartItem {
+  id          String @id @default(cuid())
+  draftCartId String
+  menuItemId  String
+  quantity    Int
+
+  draftCart DraftCart @relation(fields: [draftCartId], references: [id], onDelete: Cascade)
+  menuItem  MenuItem  @relation(fields: [menuItemId], references: [id])
+
+  @@index([draftCartId])
 }

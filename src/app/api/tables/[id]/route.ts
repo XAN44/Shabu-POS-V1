@@ -6,11 +6,11 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id } = await params; // ←← เพิ่ม await params
+    const { id } = await params;
     const { number, seats, status, qrCode } = await req.json();
 
     const updatedTable = await db.table.update({
-      where: { id }, // ←← ใช้ id ที่ await แล้ว
+      where: { id },
       data: {
         number,
         seats,
@@ -34,10 +34,10 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id } = await params; // ←← เพิ่ม await params
+    const { id } = await params;
 
     await db.table.delete({
-      where: { id }, // ←← ใช้ id ที่ await แล้ว
+      where: { id },
     });
 
     return NextResponse.json({ message: "Deleted successfully" });
