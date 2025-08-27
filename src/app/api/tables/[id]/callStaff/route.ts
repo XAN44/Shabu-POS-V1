@@ -112,9 +112,7 @@ export async function PATCH(
           timestamp: new Date().toISOString(),
         });
 
-        console.log(
-          `Staff called for table ${table.number} - Total: ฿${totalAmount}`
-        );
+        console.log();
       } catch (socketError) {
         console.warn("Socket.IO emission failed:", socketError);
       }

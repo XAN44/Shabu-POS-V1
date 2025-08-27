@@ -131,7 +131,6 @@ export async function PATCH(
 
     if (typeof global !== "undefined" && global.io) {
       try {
-        // Only emit table status change if table was actually set to available
         if (result.table?.status === TableStatus.available) {
           const tableStatusEvent: TableStatusEvent = {
             tableId: tableId,
@@ -159,8 +158,6 @@ export async function PATCH(
         };
 
         global.io.to(`table-${tableId}`).emit("billCreated", billCreatedEvent);
-
-        console.log("Socket events emitted successfully");
       } catch (socketError) {
         console.warn("Socket.IO emission failed:", socketError);
       }

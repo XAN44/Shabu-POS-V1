@@ -49,6 +49,7 @@ import {
   CallStaffForBillEvent,
   StaffCalledEvent,
 } from "@/src/app/types/socket";
+import LastOrder from "../components/Order/LastOrder";
 
 // Constants
 const API_ENDPOINTS = {
@@ -505,15 +506,11 @@ const OrdersDashboard: React.FC = () => {
 
   const handleCallStaffForBill = useCallback(
     (data: CallStaffForBillEvent) => {
-      // เล่นเสียงพร้อมระบุ tableId
       playSound("staffCall", data.tableId);
 
       setStaffCallRequests((prev) => new Map(prev.set(data.tableId, data)));
 
-      // สร้าง timeout สำหรับหยุดเสียงเท่านั้น (30 วินาที) - ไม่ลบ request
       const timeoutId = setTimeout(() => {
-        console.log(`⏰ Sound timeout for table ${data.tableId}`);
-
         stopStaffCallSound(data.tableId);
 
         setStaffCallTimeouts((prev) => {
@@ -521,7 +518,7 @@ const OrdersDashboard: React.FC = () => {
           newMap.delete(data.tableId);
           return newMap;
         });
-      }, 30000);
+      }, 60000);
 
       // เก็บ timeout ไว้
       setStaffCallTimeouts(
@@ -532,8 +529,6 @@ const OrdersDashboard: React.FC = () => {
   );
 
   const handleStaffCalled = useCallback((data: StaffCalledEvent) => {
-    console.log("✅ Staff called confirmation received:", data);
-
     setStaffCallRequests((prev) => {
       const newMap = new Map(prev);
       newMap.delete(data.tableId);
@@ -562,7 +557,6 @@ const OrdersDashboard: React.FC = () => {
       }
       lastCheckoutRef.current = checkoutKey;
 
-      console.log("Table checked out:", data);
       toast.info(`${data.tableName || `โต๊ะ ${data.number}`} เช็คเอาท์แล้ว`, {
         description: `ยอดรวม ฿${data.totalAmount.toLocaleString()}`,
         duration: 5000,
@@ -576,6 +570,29 @@ const OrdersDashboard: React.FC = () => {
     },
     [fetchData, playSound]
   );
+
+  useEffect(() => {
+    const unlockAllSounds = () => {
+      [newOrderAudioRef, checkoutAudioRef, staffCallSoundRef].forEach((ref) => {
+        if (ref.current) {
+          ref.current
+            .play()
+            .then(() => {
+              ref.current!.pause();
+              ref.current!.currentTime = 0;
+            })
+            .catch(() => {});
+        }
+      });
+      window.removeEventListener("click", unlockAllSounds);
+      window.removeEventListener("touchstart", unlockAllSounds);
+      window.removeEventListener("keydown", unlockAllSounds);
+    };
+
+    window.addEventListener("click", unlockAllSounds);
+    window.addEventListener("touchstart", unlockAllSounds);
+    window.addEventListener("keydown", unlockAllSounds);
+  }, []);
 
   const handleOrderStatusChanged = useCallback(
     (data: {
@@ -649,7 +666,6 @@ const OrdersDashboard: React.FC = () => {
     socket.on("staffCalled", handleStaffCalled);
 
     return () => {
-      console.log("Cleaning up socket listeners...");
       socket.emit("leaveDashboard");
       socket.off("newOrder");
       socket.off("orderStatusChanged");
@@ -1227,6 +1243,7 @@ const OrdersDashboard: React.FC = () => {
             </div>
           </div>
         )}
+
         {/* Enhanced Quick Checkout Section */}
         {tablesWithPendingOrders.length > 0 && (
           <div className="bg-gradient-to-br from-green-50 via-green-50 to-emerald-50 border-2 border-green-200 rounded-3xl shadow-xl overflow-hidden">
@@ -1359,6 +1376,14 @@ const OrdersDashboard: React.FC = () => {
             </div>
           </div>
         )}
+
+        <LastOrder
+          orders={todayOrders}
+          onOrderStatusChange={handleOrderStatusChange}
+          title="ออเดอร์วันนี้"
+          showTimeAgo={true}
+        />
+
         {/* Enhanced Statistics Grid */}
         <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3 sm:gap-4">
           <div className="bg-gradient-to-br from-green-500 to-green-600 rounded-2xl p-4 text-white shadow-lg hover:shadow-xl transition-all duration-200 hover:-translate-y-1">
@@ -1461,66 +1486,13 @@ const OrdersDashboard: React.FC = () => {
             <div className="text-xs opacity-90 font-medium">นาทีเฉลี่ย</div>
           </div>
         </div>
-        {/* Enhanced Quick Actions */}
-        {(todayStats.newOrders > 0 ||
-          todayStats.preparingOrders > 0 ||
-          staffCallRequests.size > 0) && (
-          <div className="bg-gradient-to-r from-amber-50 to-orange-50 border border-orange-200 rounded-2xl p-4 sm:p-6 shadow-lg">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-8 h-8 bg-orange-500 rounded-full flex items-center justify-center">
-                <Zap className="w-4 h-4 text-white" />
-              </div>
-              <h3 className="text-lg font-semibold text-orange-800">
-                การดำเนินการด่วน
-              </h3>
-            </div>
-            <div className="flex gap-3 flex-wrap">
-              {todayStats.newOrders > 0 && (
-                <div className="px-4 py-2 bg-red-100 text-red-800 rounded-xl text-sm font-medium border border-red-200 flex items-center gap-2">
-                  <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
-                  {todayStats.newOrders} ออเดอร์รอการยืนยัน
-                </div>
-              )}
-              {todayStats.preparingOrders > 0 && (
-                <div className="px-4 py-2 bg-orange-100 text-orange-800 rounded-xl text-sm font-medium border border-orange-200 flex items-center gap-2">
-                  <Timer className="w-4 h-4" />
-                  {todayStats.preparingOrders} ออเดอร์อยู่ในครัว
-                </div>
-              )}
-              {todayStats.readyOrders > 0 && (
-                <div className="px-4 py-2 bg-blue-100 text-blue-800 rounded-xl text-sm font-medium border border-blue-200 flex items-center gap-2">
-                  <CheckCircle className="w-4 h-4" />
-                  {todayStats.readyOrders} ออเดอร์พร้อมเสิร์ฟ
-                </div>
-              )}
-              {staffCallRequests.size > 0 && (
-                <div className="px-4 py-2 bg-red-100 text-red-800 rounded-xl text-sm font-medium border border-red-200 animate-pulse flex items-center gap-2">
-                  <Phone className="w-4 h-4" />
-                  {staffCallRequests.size} โต๊ะเรียกพนักงาน
-                </div>
-              )}
-            </div>
-          </div>
-        )}
+
         {/* Enhanced Tabs Section */}
         <div className="bg-white/80 backdrop-blur-sm rounded-2xl border border-white/20 shadow-lg overflow-hidden">
-          <Tabs defaultValue="today-orders" className="w-full">
+          <Tabs defaultValue="all-orders" className="w-full">
             <div className="border-b border-gray-100 bg-gray-50/50 p-4">
               <ScrollArea className="w-full">
                 <TabsList className="flex gap-2 bg-transparent">
-                  <TabsTrigger
-                    value="today-orders"
-                    className="flex items-center gap-2 px-6 py-3 rounded-xl bg-white border border-gray-200 data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-500 data-[state=active]:to-blue-600 data-[state=active]:text-white data-[state=active]:border-blue-500 data-[state=active]:shadow-lg transition-all duration-200 hover:shadow-md"
-                  >
-                    <Clock className="w-4 h-4" />
-                    <span className="font-medium">ออเดอร์วันนี้</span>
-                    {todayStats.totalOrders > 0 && (
-                      <span className="px-2 py-0.5 bg-blue-100 text-blue-800 data-[state=active]:bg-white/20 data-[state=active]:text-white rounded-full text-xs font-bold">
-                        {todayStats.totalOrders}
-                      </span>
-                    )}
-                  </TabsTrigger>
-
                   <TabsTrigger
                     value="all-orders"
                     className="flex items-center gap-2 px-6 py-3 rounded-xl bg-white border border-gray-200 data-[state=active]:bg-gradient-to-r data-[state=active]:from-green-500 data-[state=active]:to-green-600 data-[state=active]:text-white data-[state=active]:border-green-500 data-[state=active]:shadow-lg transition-all duration-200 hover:shadow-md"
@@ -1558,15 +1530,6 @@ const OrdersDashboard: React.FC = () => {
             </div>
 
             <div className="p-4 sm:p-6">
-              <TabsContent value="today-orders" className="mt-0">
-                <OrdersOverview
-                  orders={todayOrders}
-                  onOrderStatusChange={handleOrderStatusChange}
-                  title="ออเดอร์วันนี้"
-                  showTimeAgo={true}
-                />
-              </TabsContent>
-
               <TabsContent value="all-orders" className="mt-0">
                 <OrdersOverview
                   orders={orders}

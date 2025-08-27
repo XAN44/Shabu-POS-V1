@@ -24,6 +24,7 @@ import {
 } from "lucide-react";
 import { Table, Order } from "@/src/app/types/Order";
 import { toast } from "sonner";
+import { useSocketContext } from "@/src/app/providers/SocketProvider";
 
 interface CheckoutButtonProps {
   table: Table;
@@ -96,7 +97,6 @@ export const CheckoutButton: React.FC<CheckoutButtonProps> = ({
   // ตรวจสอบว่ามีออเดอร์ที่ต้องเช็คบิลหรือไม่
   const hasOrdersToCheckout = pendingOrders.length > 0;
 
-  // ตรวจสอบออเดอร์ที่ยังไม่เสร็จ (ในออเดอร์ที่ยังไม่เช็คบิล)
   const hasIncompleteOrders = pendingOrders.some(
     (order) => order.status !== "served"
   );

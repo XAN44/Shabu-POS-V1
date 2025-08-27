@@ -153,8 +153,6 @@ app.prepare().then(() => {
 
     // ✅ FIXED: Call staff for bill - ลูกค้าเรียกพนักงาน
     socket.on("callStaffForBill", (data) => {
-      console.log(`🔔 Call staff for bill received:`, data);
-
       const broadcastData = {
         type: "CALL_STAFF_FOR_BILL",
         tableId: data.tableId,
@@ -169,7 +167,6 @@ app.prepare().then(() => {
         urgent: data.urgent || false,
       };
 
-      // ส่งไปยัง POS Dashboard
       socket.to("dashboard").emit("callStaffForBill", broadcastData);
 
       console.log(`📤 Broadcasting call staff for table ${data.tableNumber}`);
@@ -231,8 +228,6 @@ app.prepare().then(() => {
     });
 
     socket.on("refreshTableOrders", (tableId) => {
-      console.log(`🔄 Manual refresh requested for table: ${tableId}`);
-
       socket.emit("tableOrdersUpdate", {
         tableId,
         message: "Manual refresh triggered",

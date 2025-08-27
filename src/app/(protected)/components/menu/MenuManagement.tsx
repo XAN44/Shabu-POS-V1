@@ -1,4 +1,6 @@
-import React, { useState } from "react";
+// MenuManagement.tsx - Updated with Category Management
+"use client";
+import React, { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -11,6 +13,8 @@ import {
   TrendingUp,
   Sparkles,
   ChefHat,
+  FolderPlus,
+  Tags,
 } from "lucide-react";
 import {
   Dialog,
@@ -34,6 +38,7 @@ import {
 import { MenuItem } from "@/src/app/types/Order";
 import Image from "next/image";
 import { toast } from "sonner";
+import { Category } from "@prisma/client";
 
 interface MenuManagementProps {
   menuItems: MenuItem[];
@@ -41,8 +46,6 @@ interface MenuManagementProps {
   onEditMenuItem: (itemId: string, item: Partial<MenuItem>) => void;
   onDeleteMenuItem: (itemId: string) => void;
 }
-
-const categories = ["อาหารจาน", "ยำ", "เครื่องดื่ม", "ของหวาน"];
 
 export const MenuManagement: React.FC<MenuManagementProps> = ({
   menuItems,
@@ -53,11 +56,14 @@ export const MenuManagement: React.FC<MenuManagementProps> = ({
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [showAddCategoryDialog, setShowAddCategoryDialog] = useState(false);
   const [editingItem, setEditingItem] = useState<MenuItem | null>(null);
   const [deletingItemId, setDeletingItemId] = useState<string | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
   const [file, setFile] = useState<File | null>(null);
-
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [newCategoryName, setNewCategoryName] = useState("");
+  const [isAddingCategory, setIsAddingCategory] = useState(false);
   const [formData, setFormData] = useState({
     name: "",
     price: "",
@@ -67,6 +73,65 @@ export const MenuManagement: React.FC<MenuManagementProps> = ({
     image: "",
     imageKey: "",
   });
+
+  // Fetch categories on component mount
+  useEffect(() => {
+    fetchCategories();
+  }, []);
+
+  const fetchCategories = async () => {
+    try {
+      const response = await fetch("/api/categories");
+      if (response.ok) {
+        const categoriesData = await response.json();
+        setCategories(categoriesData);
+      }
+    } catch (error) {
+      console.error("Error fetching categories:", error);
+      toast.error("ไม่สามารถโหลดหมวดหมู่ได้");
+    }
+  };
+
+  const handleAddCategory = async () => {
+    if (!newCategoryName.trim()) {
+      toast.error("กรุณาระบุชื่อหมวดหมู่");
+      return;
+    }
+
+    // Check if category already exists
+    if (
+      categories.some(
+        (cat) => cat.name.toLowerCase() === newCategoryName.trim().toLowerCase()
+      )
+    ) {
+      toast.error("หมวดหมู่นี้มีอยู่แล้ว");
+      return;
+    }
+
+    setIsAddingCategory(true);
+    try {
+      const response = await fetch("/api/categories", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: newCategoryName.trim() }),
+      });
+
+      if (response.ok) {
+        const newCategory = await response.json();
+        setCategories((prev) => [...prev, newCategory]);
+        setNewCategoryName("");
+        setShowAddCategoryDialog(false);
+        toast.success(`เพิ่มหมวดหมู่ "${newCategory.name}" สำเร็จ`);
+      } else {
+        throw new Error("Failed to add category");
+      }
+    } catch (error) {
+      console.error("Error adding category:", error);
+      toast.error("ไม่สามารถเพิ่มหมวดหมู่ได้");
+    } finally {
+      setIsAddingCategory(false);
+    }
+  };
 
   const resetForm = () => {
     setFormData({
@@ -119,7 +184,6 @@ export const MenuManagement: React.FC<MenuManagementProps> = ({
         const uploadResult = await response.json();
         imageUrl = uploadResult.data.secure_url;
         imageKey = uploadResult.data.public_id;
-        setShowAddDialog(false);
       } catch (error) {
         console.error("Failed to upload image:", error);
         toast.error("ไม่สามารถอัปโหลดรูปภาพได้");
@@ -140,9 +204,10 @@ export const MenuManagement: React.FC<MenuManagementProps> = ({
 
     // รีเซ็ตฟอร์มและปิด dialog
     resetForm();
-    setFile(null); // เคลียร์ State ไฟล์ที่เก็บไว้
+    setFile(null);
     setShowAddDialog(false);
   };
+
   const handleEdit = (item: MenuItem) => {
     setEditingItem(item);
     setFormData({
@@ -165,7 +230,7 @@ export const MenuManagement: React.FC<MenuManagementProps> = ({
         category: formData.category,
         description: formData.description || undefined,
         available: formData.available,
-        image: formData.image, // URL preview ชั่วคราว
+        image: formData.image,
         imageKey: formData.imageKey,
       });
 
@@ -227,13 +292,13 @@ export const MenuManagement: React.FC<MenuManagementProps> = ({
                   จัดการเมนูอาหาร
                 </h2>
                 <p className="text-blue-100 text-lg font-medium">
-                  ระบบจัดการเมนูแบบเรียลไทม์
+                  ระบบจัดการเมนูและหมวดหมู่แบบเรียลไทม์
                 </p>
               </div>
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
             {/* Total Menu Items */}
             <div className="relative group">
               <div className="absolute inset-0 bg-gradient-to-br from-white/20 to-white/10 rounded-2xl blur-lg transition-all duration-300 group-hover:blur-xl group-hover:scale-110"></div>
@@ -292,11 +357,31 @@ export const MenuManagement: React.FC<MenuManagementProps> = ({
                 <div className="mt-3 w-full h-1.5 bg-gradient-to-r from-red-500 to-pink-500 rounded-full"></div>
               </div>
             </div>
+
+            {/* Total Categories */}
+            <div className="relative group">
+              <div className="absolute inset-0 bg-gradient-to-br from-purple-500/20 to-violet-500/20 rounded-2xl blur-lg transition-all duration-300 group-hover:blur-xl group-hover:scale-110"></div>
+              <div className="relative bg-white/90 backdrop-blur-lg rounded-2xl p-6 shadow-xl border border-white/50 transition-all duration-300 hover:shadow-2xl hover:-translate-y-1">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="w-14 h-14 bg-gradient-to-br from-purple-500 to-violet-600 rounded-xl flex items-center justify-center shadow-lg">
+                    <Tags className="w-7 h-7 text-white" />
+                  </div>
+                  <FolderPlus className="w-5 h-5 text-purple-500 animate-pulse" />
+                </div>
+                <div className="text-4xl font-bold bg-gradient-to-br from-purple-700 to-violet-700 bg-clip-text text-transparent mb-2">
+                  {categories.length}
+                </div>
+                <div className="text-sm text-gray-600 font-semibold">
+                  หมวดหมู่
+                </div>
+                <div className="mt-3 w-full h-1.5 bg-gradient-to-r from-purple-500 to-violet-500 rounded-full"></div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Header with filters and add button */}
+      {/* Header with filters and add buttons */}
       <div className="relative overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-br from-orange-50 via-amber-50 to-yellow-50 opacity-70 rounded-3xl"></div>
         <div className="relative bg-white/90 backdrop-blur-xl rounded-3xl border border-orange-200/50 shadow-xl p-6">
@@ -324,24 +409,34 @@ export const MenuManagement: React.FC<MenuManagementProps> = ({
                   </SelectItem>
                   {categories.map((category) => (
                     <SelectItem
-                      key={category}
-                      value={category}
+                      key={category.id}
+                      value={category.name}
                       className="rounded-xl"
                     >
-                      {category}
+                      {category.name}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
 
-            <Button
-              onClick={() => setShowAddDialog(true)}
-              className="bg-gradient-to-r from-blue-600 to-indigo-700 hover:from-blue-700 hover:to-indigo-800 text-white font-semibold px-8 py-3 rounded-2xl shadow-lg transition-all duration-300 hover:shadow-xl hover:scale-105"
-            >
-              <Plus className="w-5 h-5 mr-2" />
-              เพิ่มเมนูใหม่
-            </Button>
+            <div className="flex flex-col sm:flex-row gap-3">
+              <Button
+                onClick={() => setShowAddCategoryDialog(true)}
+                className="bg-gradient-to-r from-purple-600 to-violet-700 hover:from-purple-700 hover:to-violet-800 text-white font-semibold px-6 py-3 rounded-2xl shadow-lg transition-all duration-300 hover:shadow-xl hover:scale-105"
+              >
+                <FolderPlus className="w-5 h-5 mr-2" />
+                เพิ่มหมวดหมู่
+              </Button>
+
+              <Button
+                onClick={() => setShowAddDialog(true)}
+                className="bg-gradient-to-r from-blue-600 to-indigo-700 hover:from-blue-700 hover:to-indigo-800 text-white font-semibold px-8 py-3 rounded-2xl shadow-lg transition-all duration-300 hover:shadow-xl hover:scale-105"
+              >
+                <Plus className="w-5 h-5 mr-2" />
+                เพิ่มเมนูใหม่
+              </Button>
+            </div>
           </div>
         </div>
       </div>
@@ -384,7 +479,6 @@ export const MenuManagement: React.FC<MenuManagementProps> = ({
                       objectFit="cover"
                       className="transition-all duration-500 group-hover:scale-110"
                     />
-                    {/* Premium overlay gradient */}
                     <div className="absolute inset-0 bg-gradient-to-t from-black/30 via-transparent to-transparent"></div>
                   </div>
                 ) : (
@@ -513,7 +607,105 @@ export const MenuManagement: React.FC<MenuManagementProps> = ({
         </div>
       )}
 
-      {/* Premium Add Menu Item Dialog */}
+      {/* Add Category Dialog */}
+      <Dialog
+        open={showAddCategoryDialog}
+        onOpenChange={setShowAddCategoryDialog}
+      >
+        <DialogContent className="max-w-md bg-white/95 backdrop-blur-xl border-0 rounded-3xl shadow-2xl">
+          <div className="absolute inset-0 bg-gradient-to-br from-purple-50 via-violet-50 to-indigo-50 opacity-50 rounded-3xl"></div>
+          <div className="relative">
+            <DialogHeader className="space-y-4">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-violet-600 rounded-2xl flex items-center justify-center shadow-lg">
+                  <FolderPlus className="w-6 h-6 text-white" />
+                </div>
+                <div>
+                  <DialogTitle className="text-2xl font-bold bg-gradient-to-r from-gray-800 to-gray-600 bg-clip-text text-transparent">
+                    เพิ่มหมวดหมู่ใหม่
+                  </DialogTitle>
+                  <DialogDescription className="text-gray-600 font-medium">
+                    สร้างหมวดหมู่ใหม่สำหรับจัดกลุ่มเมนู
+                  </DialogDescription>
+                </div>
+              </div>
+            </DialogHeader>
+
+            <div className="py-6">
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label
+                    htmlFor="category-name"
+                    className="text-sm font-semibold text-gray-700"
+                  >
+                    ชื่อหมวดหมู่
+                  </Label>
+                  <Input
+                    id="category-name"
+                    value={newCategoryName}
+                    onChange={(e) => setNewCategoryName(e.target.value)}
+                    placeholder="เช่น อาหารจานหลัก, เครื่องดื่ม, ของหวาน"
+                    className="bg-white/80 backdrop-blur-sm border-purple-200 rounded-2xl focus:ring-2 focus:ring-purple-500/20"
+                    onKeyPress={(e) => e.key === "Enter" && handleAddCategory()}
+                  />
+                </div>
+
+                {categories.length > 0 && (
+                  <div className="space-y-2">
+                    <Label className="text-sm font-semibold text-gray-700">
+                      หมวดหมู่ที่มีอยู่แล้ว
+                    </Label>
+                    <div className="max-h-32 overflow-y-auto bg-gray-50/50 rounded-2xl p-3 border border-gray-100">
+                      <div className="flex flex-wrap gap-2">
+                        {categories.map((category) => (
+                          <Badge
+                            key={category.id}
+                            className="bg-gradient-to-r from-purple-100 to-violet-100 text-purple-700 border border-purple-200 rounded-xl px-3 py-1"
+                          >
+                            {category.name}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <DialogFooter className="gap-3">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setShowAddCategoryDialog(false);
+                  setNewCategoryName("");
+                }}
+                className="bg-white/80 backdrop-blur-sm border-gray-200 text-gray-700 rounded-2xl hover:bg-gray-50 transition-all duration-300"
+              >
+                ยกเลิก
+              </Button>
+              <Button
+                onClick={handleAddCategory}
+                disabled={!newCategoryName.trim() || isAddingCategory}
+                className="bg-gradient-to-r from-purple-600 to-violet-700 hover:from-purple-700 hover:to-violet-800 text-white rounded-2xl shadow-lg transition-all duration-300 hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isAddingCategory ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
+                    กำลังเพิ่ม...
+                  </>
+                ) : (
+                  <>
+                    <FolderPlus className="w-4 h-4 mr-2" />
+                    เพิ่มหมวดหมู่
+                  </>
+                )}
+              </Button>
+            </DialogFooter>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Add Menu Item Dialog */}
       <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
         <DialogContent className="max-w-2xl bg-white/95 backdrop-blur-xl border-0 rounded-3xl shadow-2xl">
           <div className="absolute inset-0 bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 opacity-50 rounded-3xl"></div>
@@ -612,27 +804,40 @@ export const MenuManagement: React.FC<MenuManagementProps> = ({
                     >
                       หมวดหมู่
                     </Label>
-                    <Select
-                      value={formData.category}
-                      onValueChange={(value) =>
-                        setFormData({ ...formData, category: value })
-                      }
-                    >
-                      <SelectTrigger className="bg-white/80 backdrop-blur-sm border-gray-200 rounded-2xl focus:ring-2 focus:ring-blue-500/20">
-                        <SelectValue placeholder="เลือกหมวดหมู่" />
-                      </SelectTrigger>
-                      <SelectContent className="bg-white/95 backdrop-blur-xl border-gray-200 rounded-2xl">
-                        {categories.map((category) => (
-                          <SelectItem
-                            key={category}
-                            value={category}
-                            className="rounded-xl"
-                          >
-                            {category}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <div className="flex gap-2">
+                      <Select
+                        value={formData.category}
+                        onValueChange={(value) =>
+                          setFormData({ ...formData, category: value })
+                        }
+                      >
+                        <SelectTrigger className="flex-1 bg-white/80 backdrop-blur-sm border-gray-200 rounded-2xl focus:ring-2 focus:ring-blue-500/20">
+                          <SelectValue placeholder="เลือกหมวดหมู่" />
+                        </SelectTrigger>
+                        <SelectContent className="bg-white/95 backdrop-blur-xl border-gray-200 rounded-2xl">
+                          {categories.map((category) => (
+                            <SelectItem
+                              key={category.id}
+                              value={category.name}
+                              className="rounded-xl"
+                            >
+                              {category.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon"
+                        onClick={() => setShowAddCategoryDialog(true)}
+                        className="flex-shrink-0 bg-white/80 backdrop-blur-sm border-purple-200 rounded-2xl hover:bg-purple-50 hover:border-purple-300 transition-all duration-300"
+                        title="เพิ่มหมวดหมู่ใหม่"
+                      >
+                        <FolderPlus className="w-4 h-4 text-purple-600" />
+                      </Button>
+                    </div>
                   </div>
                 </div>
 
@@ -667,7 +872,8 @@ export const MenuManagement: React.FC<MenuManagementProps> = ({
               </Button>
               <Button
                 onClick={handleAdd}
-                className="bg-gradient-to-r from-blue-600 to-indigo-700 hover:from-blue-700 hover:to-indigo-800 text-white rounded-2xl shadow-lg transition-all duration-300 hover:shadow-xl"
+                disabled={!formData.category}
+                className="bg-gradient-to-r from-blue-600 to-indigo-700 hover:from-blue-700 hover:to-indigo-800 text-white rounded-2xl shadow-lg transition-all duration-300 hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 เพิ่มเมนู
               </Button>
@@ -754,11 +960,11 @@ export const MenuManagement: React.FC<MenuManagementProps> = ({
                       <SelectContent className="bg-white/95 backdrop-blur-xl border-gray-200 rounded-2xl">
                         {categories.map((category) => (
                           <SelectItem
-                            key={category}
-                            value={category}
+                            key={category.id}
+                            value={category.name}
                             className="rounded-xl"
                           >
-                            {category}
+                            {category.name}
                           </SelectItem>
                         ))}
                       </SelectContent>

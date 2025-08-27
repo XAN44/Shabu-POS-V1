@@ -11,6 +11,7 @@ import {
   StaffCalledEvent,
   ServerToClientEvents,
   ClientToServerEvents,
+  BillCreatedEvent,
 } from "../types/socket"; // Import proper types
 import {
   useMenuData,
@@ -30,17 +31,6 @@ import { useDraftCart, useTableData } from "@/src/hooks/useDraftCart";
 import { CheckoutConfirmationDialog } from "../components/confirmToCheckout";
 import { Socket } from "socket.io-client";
 
-interface StaffResponseData {
-  tableId: string;
-  message: string;
-  staffId?: string;
-  eta?: string;
-  timestamp: string;
-  staffConfirmed?: boolean;
-  confirmed?: boolean; // Alternative confirmation field
-  status?: "confirmed" | "declined" | "pending";
-}
-
 // Type for socket event data that might come in various formats
 interface SocketEventData {
   tableId: string;
@@ -54,7 +44,6 @@ interface SocketEventData {
   tableName?: string;
 }
 
-// Create a type that matches what ItemModal expects
 type ModalMenuItem = {
   id: string;
   name: string;
@@ -64,6 +53,12 @@ type ModalMenuItem = {
   image: string | null;
   imageKey: string | null;
   available: boolean;
+};
+
+type Category = {
+  id: string;
+  name: string;
+  createdAt: string;
 };
 
 // Extend window for timeout management
@@ -77,8 +72,10 @@ function MenuContent() {
   const searchParams = useSearchParams();
   const tableId = searchParams.get("table");
   const [isCheckingOut, setIsCheckingOut] = useState(false);
+  const [Categories, SetCategories] = useState<string[]>([]);
 
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
+
   const [selectedItem, setSelectedItem] = useState<ModalMenuItem | null>(null);
   const [quantity, setQuantity] = useState(1);
   const [loading, setLoading] = useState(false);
@@ -93,7 +90,6 @@ function MenuContent() {
     numberTable: string;
   } | null>(null);
 
-  // State for staff call confirmation
   const [staffCallPending, setStaffCallPending] = useState(false);
 
   const tableValid = useTableValidation(tableId);
@@ -119,32 +115,15 @@ function MenuContent() {
 
   useEffect(() => {
     if (!socket || !isConnected || !tableId) {
-      console.log("Socket not ready:", {
-        socket: !!socket,
-        isConnected,
-        tableId,
-      });
       return;
     }
 
-    console.log("Setting up staff response listeners for table:", tableId);
-    const typedSocket = socket as Socket<
-      ServerToClientEvents,
-      ClientToServerEvents
-    >;
-    typedSocket.emit("joinTable", tableId);
+    socket.emit("joinTable", tableId);
 
-    // แยก handler เฉพาะสำหรับ staffCalled
     const handleStaffCalled = (data: StaffCalledEvent) => {
-      console.log("✅ [CUSTOMER] Staff called confirmation received:", data);
       if (data.tableId === tableId) {
         setIsCheckingOut(false);
         setStaffCallPending(false);
-
-        if (window.staffCallTimeout) {
-          clearTimeout(window.staffCallTimeout);
-          window.staffCallTimeout = undefined;
-        }
 
         toast.success("พนักงานตอบรับแล้ว! ✅", {
           description: data.message || "พนักงานกำลังมาที่โต๊ะ",
@@ -154,51 +133,22 @@ function MenuContent() {
       }
     };
 
-    // handler สำหรับ events อื่นๆ (เหมือนเดิม)
-    const handleStaffResponse = (data: SocketEventData) => {
-      console.log("👥 [CUSTOMER] Staff response received:", data);
-      if (data.tableId === tableId) {
-        if (
-          data.staffConfirmed === true ||
-          data.confirmed === true ||
-          data.status === "confirmed"
-        ) {
-          setIsCheckingOut(false);
-          setStaffCallPending(false);
-          if (window.staffCallTimeout) {
-            clearTimeout(window.staffCallTimeout);
-            window.staffCallTimeout = undefined;
-          }
-          toast.success("พนักงานตอบรับแล้ว! ✅", {
-            description: data.message || "พนักงานกำลังมาที่โต๊ะ",
-            duration: 5000,
-            className: "border-green-200 bg-green-50",
-          });
-        }
+    const handleCheckBill = (data: BillCreatedEvent) => {
+      if (data && tableId) {
+        toast.success("เช็คบิลเรียบร้อย ✅", {
+          description: `ยอดรวม ${data.totalAmount.toLocaleString()} บาท`,
+          duration: 5000,
+          className: "border-green-200 bg-green-50",
+        });
       }
     };
 
-    // ล้าง listeners เก่า
-    const events: Array<keyof ServerToClientEvents> = [
-      "staffCalled",
-      "staffResponded",
-      "staffResponseConfirmed",
-      "staffResponseFromDashboard",
-      "callStaffResponse",
-      "tableJoined",
-    ];
-    events.forEach((event) => typedSocket.off(event));
-
-    // ตั้ง listeners ใหม่
-    typedSocket.on("staffCalled", handleStaffCalled); // ใช้ handler แยก
-    typedSocket.on("staffResponded", handleStaffResponse);
-    typedSocket.on("staffResponseConfirmed", handleStaffResponse);
-    typedSocket.on("staffResponseFromDashboard", handleStaffResponse);
-    typedSocket.on("callStaffResponse", handleStaffResponse);
-
+    socket.on("staffCalled", handleStaffCalled);
+    socket.on("billCreated", handleCheckBill);
     return () => {
-      events.forEach((event) => typedSocket.off(event));
-      typedSocket.emit("leaveTable", tableId);
+      socket.emit("leaveTable", tableId);
+      socket.off("billCreated");
+      socket.off("staffCalled");
       if (window.staffCallTimeout) {
         clearTimeout(window.staffCallTimeout);
         window.staffCallTimeout = undefined;
@@ -208,7 +158,6 @@ function MenuContent() {
 
   useEffect(() => {
     return () => {
-      // ล้าง timeout ทั้งหมดเมื่อออกจากหน้า
       if (window.staffCallTimeout) {
         clearTimeout(window.staffCallTimeout);
         window.staffCallTimeout = undefined;
@@ -477,7 +426,24 @@ function MenuContent() {
     (o) => (orderStatuses[o.id] || o.status) === "served"
   );
 
-  const categories = getUniqueCategories(menuItems);
+  useEffect(() => {
+    fetchCategories();
+  }, []);
+
+  const fetchCategories = async () => {
+    try {
+      const response = await fetch("/api/categories");
+      if (response.ok) {
+        const categoriesData: Category[] = await response.json();
+        // ✅ แปลงเป็น string[] ของ name
+        SetCategories(categoriesData.map((c) => c.name));
+      }
+    } catch (error) {
+      console.error("Error fetching categories:", error);
+      toast.error("ไม่สามารถโหลดหมวดหมู่ได้");
+    }
+  };
+
   const filteredItems = filterItemsByCategory(menuItems, selectedCategory);
 
   if (tableData?.status === "reserved") {
@@ -647,7 +613,7 @@ function MenuContent() {
 
         {/* Category Filter */}
         <CategoryFilter
-          categories={categories}
+          categories={Categories}
           selectedCategory={selectedCategory}
           menuItems={menuItems}
           onCategorySelect={setSelectedCategory}

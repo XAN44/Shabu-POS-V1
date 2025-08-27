@@ -17,7 +17,8 @@ export default auth((req) => {
     "/api/tables",
     "/api/menu",
     "/api/orders",
-    "/api/draft-cart", // ✅ ให้ guest ใช้ได้
+    "/api/draft-cart",
+    "/api/categories",
   ];
   const isApiAuthRoute = nextUrl.pathname.startsWith(apiAuthPrefix);
   const isPublicRoute =

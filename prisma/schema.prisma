@@ -214,3 +214,9 @@ model DraftCartItem {
 
   @@index([draftCartId])
 }
+
+model Category {
+  id        String   @id @default(cuid())
+  name      String
+  createdAt DateTime @default(now())
+}
