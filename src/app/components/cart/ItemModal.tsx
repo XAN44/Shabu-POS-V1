@@ -50,7 +50,7 @@ export const ItemModal: React.FC<ItemModalProps> = ({
         {/* Close Button */}
         <button
           onClick={onClose}
-          className="absolute top-3 right-3 sm:top-4 sm:right-4 z-30 bg-white/95 hover:bg-white dark:bg-gray-800/95 dark:hover:bg-gray-800 text-gray-700 hover:text-gray-900 dark:text-gray-200 dark:hover:text-gray-100 rounded-full p-2 sm:p-3 shadow-xl backdrop-blur-sm transition-all duration-300 hover:scale-110 focus:ring-4 focus:ring-orange-500/20"
+          className="absolute top-3 right-3 sm:top-4 sm:right-4 z-30 bg-white/95 hover:bg-white dark:bg-gray-800/95 dark:hover:bg-gray-800 text-gray-700 hover:text-gray-900 dark:text-gray-200 dark:hover:text-gray-100 rounded-full p-2 sm:p-3 shadow-xl backdrop-blur-sm transition-all duration-300 hover:scale-110 focus:ring-4 focus:ring-orange-500/20 mt-6"
           aria-label="ปิด"
         >
           <X className="w-5 h-5 sm:w-6 sm:h-6" />

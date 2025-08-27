@@ -24,6 +24,7 @@ import {
   Timer,
 } from "lucide-react";
 import { Table } from "@/src/app/types/Order";
+import { toast } from "sonner";
 
 export const TableManagement: React.FC = () => {
   const [tables, setTables] = useState<Table[]>([]);
@@ -51,14 +52,26 @@ export const TableManagement: React.FC = () => {
   }, []);
 
   const handleAddTable = async () => {
+    const number = formData.number;
+    const isDuplicate = tables.some(
+      (t) => String(t.number) === formData.number
+    );
+    if (isDuplicate) {
+      toast.error("ไม่สามารถเพิ่มโต๊ะได้", {
+        description: `เลขโต๊ะ ${number} มีอยู่แล้ว`,
+      });
+      return;
+    }
+
     const res = await fetch("/api/tables", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        number: parseInt(formData.number),
+        number: formData.number,
         seats: parseInt(formData.seats),
       }),
     });
+
     const newTable = await res.json();
     setTables([...tables, newTable]);
     setShowAddDialog(false);
@@ -82,7 +95,7 @@ export const TableManagement: React.FC = () => {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        number: parseInt(formData.number),
+        number: formData.number,
         seats: parseInt(formData.seats),
       }),
     });
@@ -155,13 +168,27 @@ export const TableManagement: React.FC = () => {
           </div>
           <div className="w-16 sm:w-24 h-1 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full mx-auto"></div>
           <Button
-            onClick={() => setShowAddDialog(true)}
+            onClick={() => {
+              setFormData({ number: "A1", seats: "" });
+              setShowAddDialog(true);
+            }}
             className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-bold py-3 px-6 rounded-2xl shadow-xl transition-all duration-300 hover:shadow-2xl hover:scale-105"
           >
             <Plus className="w-5 h-5 mr-2" />
             เพิ่มโต๊ะแรก
           </Button>
         </div>
+
+        {/* Dialog */}
+        <AddEditTableDialog
+          open={showAddDialog}
+          onOpenChange={setShowAddDialog}
+          formData={formData}
+          setFormData={setFormData}
+          onSubmit={handleAddTable}
+          title="เพิ่มโต๊ะใหม่"
+          description="กรอกข้อมูลโต๊ะใหม่ ระบบจะสร้าง ID และ QR Code ให้อัตโนมัติ"
+        />
       </div>
     );
   }
@@ -445,9 +472,9 @@ export const TableManagement: React.FC = () => {
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
-          {tables.map((table) => (
+          {tables.map((table, index) => (
             <div
-              key={table.id}
+              key={table.id ?? index}
               className="transform transition-all duration-300 hover:scale-105"
             >
               <TableStatus

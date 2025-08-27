@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import db from "../../lib/prismaClient";
 import qrcode from "qrcode-generator";
+import type { UploadApiResponse } from "cloudinary";
+import { v4 as uuidv4 } from "uuid";
+import { cloudinary } from "../../lib/cloudinary";
 
 // GET /api/tables
 export async function GET() {
@@ -18,36 +21,60 @@ export async function POST(req: NextRequest) {
   try {
     const { number, seats, status = "available" } = await req.json();
 
-    if (typeof number !== "number" || typeof seats !== "number") {
-      return NextResponse.json(
-        { error: "number และ seats ต้องเป็นตัวเลข" },
-        { status: 400 }
-      );
-    }
-
-    // สร้างโต๊ะใน DB
+    // 1. สร้างโต๊ะใน DB ก่อน
     const newTable = await db.table.create({
       data: { number, seats, status },
     });
 
-    const baseURL = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+    const baseURL = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000";
     const tableURL = `${baseURL}/menu?table=${newTable.id}`;
 
-    // สร้าง QR Code เป็น Data URL ด้วย qrcode-generator
-    const qr = qrcode(0, "L"); // 0 = auto type, L = error correction
+    // 2. สร้าง QR Code เป็น DataURL
+    const qr = qrcode(0, "L");
     qr.addData(tableURL);
     qr.make();
-    const qrCodeDataURL = qr.createDataURL(4); // 4 = module size
+    const qrDataUrl = qr.createDataURL(4); // PNG DataURL
 
-    // อัพเดท QR Code ลง DB
+    // 3. แปลง DataURL → Buffer
+    const base64Data = qrDataUrl.split(",")[1]; // ตัด prefix "data:image/png;base64,"
+    const buffer = Buffer.from(base64Data, "base64");
+
+    // 4. อัปโหลดไป Cloudinary
+    const uploadResult = await new Promise<UploadApiResponse>(
+      (resolve, reject) => {
+        const stream = cloudinary.uploader.upload_stream(
+          {
+            folder: "table-qrcodes",
+            public_id: uuidv4(),
+            resource_type: "image",
+            upload_preset: process.env.CLOUDINARY_UPLOAD_PRESET,
+          },
+          (error, result) => {
+            if (error) {
+              console.error("Cloudinary Upload Error:", error);
+              reject(error);
+            } else if (!result) {
+              reject(new Error("No result from Cloudinary"));
+            } else {
+              resolve(result);
+            }
+          }
+        );
+        stream.end(buffer);
+      }
+    );
+
+    console.log("✅ Cloudinary upload success:", uploadResult.secure_url);
+
+    // 5. อัปเดท URL ลง DB
     const updatedTable = await db.table.update({
       where: { id: newTable.id },
-      data: { qrCode: qrCodeDataURL },
+      data: { qrCode: uploadResult.secure_url },
     });
 
     return NextResponse.json(updatedTable, { status: 201 });
   } catch (error) {
-    console.error(error);
+    console.error("❌ Error in /api/tables:", error);
     return NextResponse.json(
       { error: "ไม่สามารถสร้างโต๊ะได้" },
       { status: 500 }

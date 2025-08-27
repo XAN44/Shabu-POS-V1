@@ -137,6 +137,7 @@ export async function PATCH(
             status: "available",
             timestamp: new Date(),
           };
+
           global.io
             .to("dashboard")
             .emit("tableStatusChanged", tableStatusEvent);

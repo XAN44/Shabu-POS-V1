@@ -4,7 +4,6 @@ import React from "react";
 import { signOut } from "next-auth/react";
 import { LogOut } from "lucide-react";
 
-// ปุ่ม Logout แยกเป็น component
 export default function LogoutButton() {
   return (
     <button

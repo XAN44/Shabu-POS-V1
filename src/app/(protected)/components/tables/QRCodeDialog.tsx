@@ -1,5 +1,5 @@
 "use client";
-import React, { useEffect, useState } from "react";
+import React from "react";
 import {
   Dialog,
   DialogContent,
@@ -10,7 +10,6 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Download } from "lucide-react";
-import { generateQRCodeDataURL, generateTableQRURL } from "../../utils/qrCode";
 import { Table } from "@/src/app/types/Order";
 import Image from "next/image";
 
@@ -25,21 +24,13 @@ export const QRCodeDialog: React.FC<QRCodeDialogProps> = ({
   open,
   onClose,
 }) => {
-  const [qrDataURL, setQrDataURL] = useState("");
-
-  useEffect(() => {
-    if (table) {
-      const url = generateTableQRURL(table.id);
-      generateQRCodeDataURL(url).then(setQrDataURL);
-    }
-  }, [table]);
-
   if (!table) return null;
 
   const downloadQRCode = () => {
+    if (!table.qrCode) return;
     const link = document.createElement("a");
     link.download = `table-${table.number}-qr.png`;
-    link.href = qrDataURL;
+    link.href = table.qrCode;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -61,9 +52,9 @@ export const QRCodeDialog: React.FC<QRCodeDialogProps> = ({
           {/* QR Code Container */}
           <div className="flex justify-center">
             <div className="p-3 sm:p-4 bg-white border-2 border-gray-200 rounded-xl shadow-sm">
-              {qrDataURL ? (
+              {table.qrCode ? (
                 <Image
-                  src={qrDataURL}
+                  src={table.qrCode}
                   alt={`QR Code for Table ${table.number}`}
                   width={180}
                   height={180}
@@ -97,7 +88,7 @@ export const QRCodeDialog: React.FC<QRCodeDialogProps> = ({
                 URL สำหรับลูกค้า:
               </div>
               <div className="text-xs sm:text-sm font-mono bg-white border rounded px-2 py-2 break-all text-gray-800 leading-relaxed">
-                {generateTableQRURL(table.id)}
+                {`${process.env.NEXT_PUBLIC_BASE_URL}/menu?table=${table.id}`}
               </div>
             </div>
           </div>
@@ -113,7 +104,7 @@ export const QRCodeDialog: React.FC<QRCodeDialogProps> = ({
           </Button>
           <Button
             onClick={downloadQRCode}
-            disabled={!qrDataURL}
+            disabled={!table.qrCode}
             className="w-full sm:w-auto order-1 sm:order-2 h-10 sm:h-9 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300"
           >
             <Download className="w-4 h-4 mr-2 flex-shrink-0" />

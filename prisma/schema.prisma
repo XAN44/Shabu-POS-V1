@@ -94,7 +94,7 @@ model Authenticator {
 
 model Table {
   id            String      @id @default(cuid())
-  number        Int
+  number        String
   seats         Int
   status        TableStatus
   qrCode        String?
@@ -151,8 +151,8 @@ model UploadedFile {
 
 model Bill {
   id            String   @id @default(cuid())
-  tableId       String
-  table         Table    @relation(fields: [tableId], references: [id])
+  tableId       String?
+  table         Table?   @relation(fields: [tableId], references: [id], onDelete: SetNull)
   totalAmount   Float
   paymentTime   DateTime @default(now())
   paymentMethod String?
