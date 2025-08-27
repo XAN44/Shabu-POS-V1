@@ -35,7 +35,7 @@ export interface CallStaffOrderPayload {
 export interface CallStaffForBillEvent {
   type: "CALL_STAFF_FOR_BILL";
   tableId: string;
-  tableNumber: number;
+  tableNumber: string;
   tableName: string;
   totalAmount: number;
   orderCount: number;
