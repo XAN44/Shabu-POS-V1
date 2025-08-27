@@ -6,7 +6,11 @@
     "dev": "node server.js",
     "build": "next build",
     "start": "NODE_ENV=production node server.js",
-    "lint": "next lint"
+    "lint": "next lint",
+    "seed": "prisma db seed"
+  },
+  "prisma": {
+    "seed": "ts-node --esm prisma/seed.js"
   },
   "dependencies": {
     "@auth/prisma-adapter": "^2.10.0",

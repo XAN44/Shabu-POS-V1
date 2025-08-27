@@ -1,4 +1,4 @@
-// app/menu/page.tsx - Fixed version with proper types
+// app/menu/page.tsx - Enhanced Beautiful Design
 "use client";
 
 import { useState, useCallback, Suspense, useMemo, useEffect } from "react";
@@ -9,7 +9,6 @@ import { MenuItem } from "../types/Order";
 import { BillSummary, CartItem } from "../types/menu";
 import {
   StaffCalledEvent,
-  StaffResponseEvent,
   ServerToClientEvents,
   ClientToServerEvents,
 } from "../types/socket"; // Import proper types
@@ -26,11 +25,34 @@ import { MenuItemCard } from "../components/menu/MenuItemCard";
 import { ItemModal } from "../components/cart/ItemModal";
 import { ShoppingCartComponent } from "../components/cart/ShoppingCart";
 import { BillModal } from "../components/bill/BillModal";
-import { OrderStatus } from "@prisma/client";
 import { OrderStatusComponents } from "../components/order/orderStatus";
 import { useDraftCart, useTableData } from "@/src/hooks/useDraftCart";
 import { CheckoutConfirmationDialog } from "../components/confirmToCheckout";
 import { Socket } from "socket.io-client";
+
+interface StaffResponseData {
+  tableId: string;
+  message: string;
+  staffId?: string;
+  eta?: string;
+  timestamp: string;
+  staffConfirmed?: boolean;
+  confirmed?: boolean; // Alternative confirmation field
+  status?: "confirmed" | "declined" | "pending";
+}
+
+// Type for socket event data that might come in various formats
+interface SocketEventData {
+  tableId: string;
+  message?: string;
+  staffId?: string;
+  eta?: string;
+  timestamp: string;
+  staffConfirmed?: boolean;
+  confirmed?: boolean;
+  status?: "confirmed" | "declined" | "pending";
+  tableName?: string;
+}
 
 // Create a type that matches what ItemModal expects
 type ModalMenuItem = {
@@ -43,17 +65,6 @@ type ModalMenuItem = {
   imageKey: string | null;
   available: boolean;
 };
-
-// Interface for staff response data - properly typed
-interface StaffResponseData {
-  tableId: string;
-  message: string;
-  staffId?: string;
-  eta?: string;
-  timestamp: string;
-  staffConfirmed?: boolean;
-  status?: string;
-}
 
 // Extend window for timeout management
 declare global {
@@ -93,7 +104,6 @@ function MenuContent() {
     fetchOrders,
     updateOrderStatus,
     addNewOrder,
-    removeOrdersById,
   } = useOrdersData(tableId);
 
   const { cart, updateCart, clearDraftCart } = useDraftCart(
@@ -107,7 +117,6 @@ function MenuContent() {
     updateOrderStatus,
   });
 
-  // Enhanced Staff response handling useEffect with proper typing
   useEffect(() => {
     if (!socket || !isConnected || !tableId) {
       console.log("Socket not ready:", {
@@ -119,58 +128,19 @@ function MenuContent() {
     }
 
     console.log("Setting up staff response listeners for table:", tableId);
-
-    // Type-safe socket instance
     const typedSocket = socket as Socket<
       ServerToClientEvents,
       ClientToServerEvents
     >;
+    typedSocket.emit("joinTable", tableId);
 
-    // Enhanced staff response handlers with proper typing
+    // แยก handler เฉพาะสำหรับ staffCalled
     const handleStaffCalled = (data: StaffCalledEvent) => {
       console.log("✅ [CUSTOMER] Staff called confirmation received:", data);
-
       if (data.tableId === tableId) {
-        console.log(
-          "✅ [CUSTOMER] Confirmation is for this table, clearing states"
-        );
-
         setIsCheckingOut(false);
         setStaffCallPending(false);
 
-        // Clear timeout if exists
-        if (window.staffCallTimeout) {
-          clearTimeout(window.staffCallTimeout);
-          window.staffCallTimeout = undefined;
-        }
-
-        toast.success("พนักงานได้รับแจ้งแล้ว! 👨‍💼", {
-          description: data.message || "พนักงานกำลังมาที่โต๊ะ",
-          duration: 5000,
-          className: "border-green-200 bg-green-50",
-          action: {
-            label: "ตกลง",
-            onClick: () => {},
-          },
-        });
-      } else {
-        console.log(
-          "❌ [CUSTOMER] Confirmation for different table:",
-          data.tableId
-        );
-      }
-    };
-
-    const handleStaffResponse = (data: StaffResponseData) => {
-      console.log("👥 [CUSTOMER] Staff response received:", data);
-
-      if (data.tableId === tableId) {
-        console.log("✅ [CUSTOMER] Staff response is for this table");
-
-        setIsCheckingOut(false);
-        setStaffCallPending(false);
-
-        // Clear timeout if exists
         if (window.staffCallTimeout) {
           clearTimeout(window.staffCallTimeout);
           window.staffCallTimeout = undefined;
@@ -184,60 +154,31 @@ function MenuContent() {
       }
     };
 
-    const handleStaffResponseConfirmed = (data: {
-      tableId: string;
-      timestamp: string;
-    }) => {
-      console.log("✅ [CUSTOMER] Staff response confirmed:", data);
-
+    // handler สำหรับ events อื่นๆ (เหมือนเดิม)
+    const handleStaffResponse = (data: SocketEventData) => {
+      console.log("👥 [CUSTOMER] Staff response received:", data);
       if (data.tableId === tableId) {
-        console.log("✅ [CUSTOMER] Response confirmation is for this table");
-
-        setIsCheckingOut(false);
-        setStaffCallPending(false);
-
-        // Clear timeout if exists
-        if (window.staffCallTimeout) {
-          clearTimeout(window.staffCallTimeout);
-          window.staffCallTimeout = undefined;
+        if (
+          data.staffConfirmed === true ||
+          data.confirmed === true ||
+          data.status === "confirmed"
+        ) {
+          setIsCheckingOut(false);
+          setStaffCallPending(false);
+          if (window.staffCallTimeout) {
+            clearTimeout(window.staffCallTimeout);
+            window.staffCallTimeout = undefined;
+          }
+          toast.success("พนักงานตอบรับแล้ว! ✅", {
+            description: data.message || "พนักงานกำลังมาที่โต๊ะ",
+            duration: 5000,
+            className: "border-green-200 bg-green-50",
+          });
         }
-
-        toast.success("พนักงานตอบรับแล้ว! 🎉", {
-          description: "พนักงานกำลังมาที่โต๊ะ",
-          duration: 3000,
-          className: "border-green-200 bg-green-50",
-        });
       }
     };
 
-    // Generic handler with proper typing
-    const handleGenericStaffResponse = (data: StaffResponseData) => {
-      console.log("🔄 [CUSTOMER] Generic staff response:", data);
-
-      if (data?.tableId === tableId) {
-        setIsCheckingOut(false);
-        setStaffCallPending(false);
-
-        // Clear timeout if exists
-        if (window.staffCallTimeout) {
-          clearTimeout(window.staffCallTimeout);
-          window.staffCallTimeout = undefined;
-        }
-
-        toast.success("พนักงานตอบรับแล้ว!", {
-          description: "กำลังมาที่โต๊ะ",
-          duration: 3000,
-          className: "border-green-200 bg-green-50",
-        });
-      }
-    };
-
-    // Handle table joined confirmation
-    const handleTableJoined = (data: { tableId: string; timestamp: Date }) => {
-      console.log("🍽️ [CUSTOMER] Table joined confirmation:", data);
-    };
-
-    // Clear any existing listeners
+    // ล้าง listeners เก่า
     const events: Array<keyof ServerToClientEvents> = [
       "staffCalled",
       "staffResponded",
@@ -246,28 +187,112 @@ function MenuContent() {
       "callStaffResponse",
       "tableJoined",
     ];
-
     events.forEach((event) => typedSocket.off(event));
 
-    // Add new listeners with proper typing
-    typedSocket.on("staffCalled", handleStaffCalled);
+    // ตั้ง listeners ใหม่
+    typedSocket.on("staffCalled", handleStaffCalled); // ใช้ handler แยก
     typedSocket.on("staffResponded", handleStaffResponse);
-    typedSocket.on("staffResponseConfirmed", handleStaffResponseConfirmed);
-    typedSocket.on("staffResponseFromDashboard", handleGenericStaffResponse);
-    typedSocket.on("callStaffResponse", handleGenericStaffResponse);
-    typedSocket.on("tableJoined", handleTableJoined);
+    typedSocket.on("staffResponseConfirmed", handleStaffResponse);
+    typedSocket.on("staffResponseFromDashboard", handleStaffResponse);
+    typedSocket.on("callStaffResponse", handleStaffResponse);
 
     return () => {
-      console.log("🧹 [CUSTOMER] Cleaning up staff response listeners...");
       events.forEach((event) => typedSocket.off(event));
-
-      // Clear timeout on cleanup
+      typedSocket.emit("leaveTable", tableId);
       if (window.staffCallTimeout) {
         clearTimeout(window.staffCallTimeout);
         window.staffCallTimeout = undefined;
       }
     };
   }, [socket, isConnected, tableId]);
+
+  useEffect(() => {
+    return () => {
+      // ล้าง timeout ทั้งหมดเมื่อออกจากหน้า
+      if (window.staffCallTimeout) {
+        clearTimeout(window.staffCallTimeout);
+        window.staffCallTimeout = undefined;
+      }
+    };
+  }, []);
+
+  // แก้ไข handleStaffRequest function ให้ timeout นานขึ้น
+  const handleStaffRequest = async () => {
+    if (!socket || !isConnected || !tableId) {
+      toast.error("ไม่สามารถติดต่อกับระบบได้ กรุณาลองใหม่อีกครั้ง");
+      return;
+    }
+
+    const summary = prepareBillSummary();
+    if (!summary || summary.orders.length === 0) {
+      toast.error("ไม่มีออเดอร์ที่พร้อมเช็คบิล");
+      return;
+    }
+
+    try {
+      console.log(
+        "🔔 [CUSTOMER] Starting staff call process for table:",
+        tableId
+      );
+
+      setIsCheckingOut(true);
+      setStaffCallPending(true);
+
+      const response = await fetch(`/api/tables/${tableId}/callStaff`, {
+        method: "PATCH",
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to call staff");
+      }
+
+      const result = await response.json();
+      console.log("🔔 [CUSTOMER] API response:", result);
+
+      if (result.success) {
+        toast.success("ส่งสัญญาณเรียกพนักงานแล้ว! 📞", {
+          description: `${tableName} - กำลังรอการตอบกลับ...`,
+          duration: 5000,
+        });
+
+        const typedSocket = socket as Socket<
+          ServerToClientEvents,
+          ClientToServerEvents
+        >;
+        typedSocket.emit("customerCallStaff", {
+          tableId,
+          tableName,
+          timestamp: new Date().toISOString(),
+        });
+
+        // เพิ่ม timeout เป็น 30 วินาที (ให้เวลาพนักงานฟังเสียงเพลง)
+        window.staffCallTimeout = setTimeout(() => {
+          if (staffCallPending) {
+            console.log("⏰ [CUSTOMER] Staff call timeout reached");
+
+            setStaffCallPending(false);
+            setIsCheckingOut(false);
+
+            toast.warning("การตอบกลับล่าช้า แต่สัญญาณถูกส่งแล้ว", {
+              description: "พนักงานอาจกำลังยุ่ง หรือจะมาที่โต๊ะโดยไม่ตอบกลับ",
+              duration: 8000,
+              action: {
+                label: "เรียกใหม่",
+                onClick: () => handleStaffRequest(),
+              },
+            });
+          }
+        }, 30000); // เพิ่มจาก 15 เป็น 30 วินาที
+      } else {
+        throw new Error("API returned unsuccessful response");
+      }
+    } catch (error) {
+      console.error("❌ [CUSTOMER] Call staff error:", error);
+      toast.error("เกิดข้อผิดพลาดในการเรียกพนักงาน");
+      setStaffCallPending(false);
+      setIsCheckingOut(false);
+    }
+  };
 
   // Cleanup effect for component unmount
   useEffect(() => {
@@ -418,86 +443,6 @@ function MenuContent() {
   const tableName = numberTable ? `โต๊ะ ${numberTable}` : "ไม่ระบุ";
 
   // Enhanced staff request function with better error handling and typing
-  const handleStaffRequest = async () => {
-    if (!socket || !isConnected || !tableId) {
-      toast.error("ไม่สามารถติดต่อกับระบบได้ กรุณาลองใหม่อีกครั้ง");
-      return;
-    }
-
-    const summary = prepareBillSummary();
-    if (!summary || summary.orders.length === 0) {
-      toast.error("ไม่มีออเดอร์ที่พร้อมเช็คบิล");
-      return;
-    }
-
-    try {
-      console.log(
-        "🔔 [CUSTOMER] Starting staff call process for table:",
-        tableId
-      );
-
-      setIsCheckingOut(true);
-      setStaffCallPending(true);
-
-      // Call API to send staff call signal
-      const response = await fetch(`/api/tables/${tableId}/callStaff`, {
-        method: "PATCH",
-      });
-
-      if (!response.ok) {
-        throw new Error("Failed to call staff");
-      }
-
-      const result = await response.json();
-      console.log("🔔 [CUSTOMER] API response:", result);
-
-      if (result.success) {
-        // Show first toast that signal was sent
-        toast.success("ส่งสัญญาณเรียกพนักงานแล้ว! 📞", {
-          description: `${tableName} - กำลังรอการตอบกลับ...`,
-          duration: 5000,
-        });
-
-        // Test: emit additional socket event with proper typing
-        console.log("🔔 [CUSTOMER] Emitting additional socket events");
-        const typedSocket = socket as Socket<
-          ServerToClientEvents,
-          ClientToServerEvents
-        >;
-        typedSocket.emit("customerCallStaff", {
-          tableId,
-          tableName,
-          timestamp: new Date().toISOString(),
-        });
-
-        // Set longer timeout with better fallback
-        window.staffCallTimeout = setTimeout(() => {
-          if (staffCallPending) {
-            console.log("⏰ [CUSTOMER] Staff call timeout reached");
-
-            setStaffCallPending(false);
-            setIsCheckingOut(false);
-
-            toast.warning("การตอบกลับล่าช้า แต่สัญญาณถูกส่งแล้ว", {
-              description: "พนักงานอาจกำลังยุ่ง หรือจะมาที่โต๊ะโดยไม่ตอบกลับ",
-              duration: 8000,
-              action: {
-                label: "เรียกใหม่",
-                onClick: () => handleStaffRequest(),
-              },
-            });
-          }
-        }, 15000); // Increased to 15 seconds
-      } else {
-        throw new Error("API returned unsuccessful response");
-      }
-    } catch (error) {
-      console.error("❌ [CUSTOMER] Call staff error:", error);
-      toast.error("เกิดข้อผิดพลาดในการเรียกพนักงาน");
-      setStaffCallPending(false);
-      setIsCheckingOut(false);
-    }
-  };
 
   // Function to close dialog
   const handleCloseCheckoutDialog = () => {
@@ -535,20 +480,24 @@ function MenuContent() {
   const categories = getUniqueCategories(menuItems);
   const filteredItems = filterItemsByCategory(menuItems, selectedCategory);
 
-  // Loading and error states
-  if (tableValid === false) {
+  if (tableData?.status === "reserved") {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-red-50 to-pink-50 flex items-center justify-center p-4">
-        <div className="max-w-md w-full">
-          <div className="bg-white shadow-xl rounded-2xl p-8 text-center border-l-4 border-red-500">
-            <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <X className="w-8 h-8 text-red-600" />
+      <div className="min-h-screen bg-gradient-to-br from-amber-50 via-orange-50 to-red-50 flex items-center justify-center p-6">
+        <div className="max-w-lg w-full bg-white/95 backdrop-blur-xl shadow-2xl rounded-3xl p-10 text-center border border-white/30 relative overflow-hidden">
+          <div className="absolute inset-0 bg-gradient-to-br from-amber-100/20 to-orange-100/20 pointer-events-none"></div>
+          <div className="relative z-10">
+            <div className="w-20 h-20 bg-gradient-to-br from-amber-400 to-orange-500 rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg">
+              <X className="w-10 h-10 text-white" />
             </div>
-            <h1 className="text-2xl font-bold text-gray-800 mb-2">ไม่พบโต๊ะ</h1>
-            <p className="text-gray-600 mb-6">กรุณาสแกน QR Code ใหม่อีกครั้ง</p>
+            <h1 className="text-3xl font-bold bg-gradient-to-r from-amber-600 to-orange-600 bg-clip-text text-transparent mb-4">
+              ขออภัย โต๊ะนี้ถูกจองแล้ว
+            </h1>
+            <p className="text-gray-600 mb-8 text-lg leading-relaxed">
+              กรุณาติดต่อพนักงานเพื่อขอใช้โต๊ะ หรือเลือกโต๊ะอื่น
+            </p>
             <button
               onClick={() => window.location.reload()}
-              className="w-full bg-red-500 hover:bg-red-600 text-white py-2 px-4 rounded-xl"
+              className="w-full bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white py-4 px-6 rounded-2xl font-semibold shadow-lg transform hover:scale-105 transition-all duration-200"
             >
               ลองใหม่อีกครั้ง
             </button>
@@ -558,26 +507,64 @@ function MenuContent() {
     );
   }
 
+  // Loading and error states
+  if (tableValid === false) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-rose-50 via-red-50 to-pink-50 flex items-center justify-center p-6">
+        <div className="max-w-lg w-full">
+          <div className="bg-white/95 backdrop-blur-xl shadow-2xl rounded-3xl p-10 text-center border border-white/30 relative overflow-hidden">
+            <div className="absolute inset-0 bg-gradient-to-br from-rose-100/20 to-red-100/20 pointer-events-none"></div>
+            <div className="relative z-10">
+              <div className="w-20 h-20 bg-gradient-to-br from-rose-400 to-red-500 rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg">
+                <X className="w-10 h-10 text-white" />
+              </div>
+              <h1 className="text-3xl font-bold bg-gradient-to-r from-rose-600 to-red-600 bg-clip-text text-transparent mb-4">
+                ไม่พบโต๊ะ
+              </h1>
+              <p className="text-gray-600 mb-8 text-lg leading-relaxed">
+                กรุณาสแกน QR Code ใหม่อีกครั้ง
+              </p>
+              <button
+                onClick={() => window.location.reload()}
+                className="w-full bg-gradient-to-r from-rose-500 to-red-500 hover:from-rose-600 hover:to-red-600 text-white py-4 px-6 rounded-2xl font-semibold shadow-lg transform hover:scale-105 transition-all duration-200"
+              >
+                ลองใหม่อีกครั้ง
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   if (tableValid === null || fetchLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50 flex items-center justify-center p-4">
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 flex items-center justify-center p-6">
         <div className="text-center">
-          <div className="relative">
-            <div className="w-16 h-16 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin mx-auto mb-6"></div>
-            <div className="absolute inset-0 w-12 h-12 border-4 border-transparent border-t-blue-400 rounded-full animate-spin mx-auto mt-2 ml-2"></div>
+          <div className="relative mb-8">
+            <div className="w-20 h-20 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin mx-auto shadow-lg"></div>
+            <div className="absolute inset-0 w-16 h-16 border-4 border-transparent border-t-indigo-400 rounded-full animate-spin mx-auto mt-2 ml-2"></div>
+            <div className="absolute inset-0 w-12 h-12 border-4 border-transparent border-t-purple-300 rounded-full animate-spin mx-auto mt-4 ml-4"></div>
           </div>
-          <h2 className="text-xl font-semibold text-gray-700 mb-2">
+          <h2 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent mb-3">
             {tableValid === null ? "กำลังตรวจสอบโต๊ะ..." : "กำลังโหลดเมนู..."}
           </h2>
-          <p className="text-gray-500">โปรดรอสักครู่</p>
+          <p className="text-gray-600 text-lg">โปรดรอสักครู่</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-orange-50 via-red-50 to-pink-50">
-      <div className="container mx-auto px-4 py-6 space-y-6 max-w-6xl">
+    <div className="min-h-screen bg-gradient-to-br from-orange-50 via-amber-50 to-red-50 relative overflow-hidden">
+      {/* Background decorative elements */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute -top-40 -right-40 w-80 h-80 bg-gradient-to-br from-orange-200/30 to-red-200/30 rounded-full blur-3xl"></div>
+        <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-gradient-to-br from-amber-200/30 to-orange-200/30 rounded-full blur-3xl"></div>
+        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-gradient-to-br from-red-100/20 to-pink-100/20 rounded-full blur-3xl"></div>
+      </div>
+
+      <div className="container mx-auto px-4 py-8 space-y-8 max-w-7xl relative z-10">
         {/* Header */}
         <MenuHeader
           numberTable={tableName}
@@ -606,30 +593,38 @@ function MenuContent() {
 
         {/* Staff Call Pending Indicator */}
         {staffCallPending && (
-          <div className="bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-2xl p-6 flex items-center shadow-lg">
-            <div className="bg-white/20 p-3 rounded-full mr-4">
-              <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-            </div>
-            <div>
-              <h3 className="text-xl font-semibold mb-1">
-                กำลังเรียกพนักงาน...
-              </h3>
-              <p className="opacity-90">สัญญาณถูกส่งแล้ว กำลังรอการตอบกลับ</p>
+          <div className="bg-gradient-to-r from-blue-500 via-indigo-500 to-purple-600 text-white rounded-3xl p-8 flex items-center shadow-2xl border border-white/20 backdrop-blur-sm relative overflow-hidden">
+            <div className="absolute inset-0 bg-gradient-to-r from-blue-400/20 to-purple-400/20 pointer-events-none"></div>
+            <div className="relative z-10 flex items-center w-full">
+              <div className="bg-white/25 p-4 rounded-full mr-6 shadow-lg">
+                <div className="w-8 h-8 border-3 border-white border-t-transparent rounded-full animate-spin"></div>
+              </div>
+              <div className="flex-1">
+                <h3 className="text-2xl font-bold mb-2">
+                  กำลังเรียกพนักงาน...
+                </h3>
+                <p className="opacity-90 text-lg">
+                  สัญญาณถูกส่งแล้ว กำลังรอการตอบกลับ
+                </p>
+              </div>
             </div>
           </div>
         )}
 
         {/* Success Message */}
         {submittedOrder && (
-          <div className="bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-2xl p-6 flex items-center shadow-lg">
-            <div className="bg-white/20 p-3 rounded-full mr-4">
-              <CheckCircle className="w-8 h-8" />
-            </div>
-            <div>
-              <h3 className="text-xl font-semibold mb-1">สั่งอาหารสำเร็จ!</h3>
-              <p className="opacity-90">
-                ออเดอร์ของคุณถูกส่งไปยังครัวแล้ว กรุณารอสักครู่
-              </p>
+          <div className="bg-gradient-to-r from-green-500 via-emerald-500 to-teal-600 text-white rounded-3xl p-8 flex items-center shadow-2xl border border-white/20 backdrop-blur-sm relative overflow-hidden">
+            <div className="absolute inset-0 bg-gradient-to-r from-green-400/20 to-teal-400/20 pointer-events-none"></div>
+            <div className="relative z-10 flex items-center w-full">
+              <div className="bg-white/25 p-4 rounded-full mr-6 shadow-lg">
+                <CheckCircle className="w-10 h-10" />
+              </div>
+              <div className="flex-1">
+                <h3 className="text-2xl font-bold mb-2">สั่งอาหารสำเร็จ!</h3>
+                <p className="opacity-90 text-lg">
+                  ออเดอร์ของคุณถูกส่งไปยังครัวแล้ว กรุณารอสักครู่
+                </p>
+              </div>
             </div>
           </div>
         )}
@@ -659,7 +654,7 @@ function MenuContent() {
         />
 
         {/* Menu Items */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
           {filteredItems.map((item) => (
             <MenuItemCard
               key={item.id}
@@ -671,14 +666,18 @@ function MenuContent() {
 
         {/* Empty State */}
         {filteredItems.length === 0 && (
-          <div className="text-center py-16">
-            <div className="w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <ImageIcon className="w-12 h-12 text-gray-400" />
+          <div className="text-center py-20">
+            <div className="bg-white/80 backdrop-blur-sm rounded-3xl p-12 shadow-xl border border-white/30 max-w-md mx-auto">
+              <div className="w-28 h-28 bg-gradient-to-br from-gray-100 to-gray-200 rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg">
+                <ImageIcon className="w-14 h-14 text-gray-400" />
+              </div>
+              <h3 className="text-2xl font-bold text-gray-700 mb-4">
+                ไม่พบเมนูในหมวดหมู่นี้
+              </h3>
+              <p className="text-gray-500 text-lg">
+                ลองเลือกหมวดหมู่อื่นดูครับ
+              </p>
             </div>
-            <h3 className="text-xl font-semibold text-gray-600 mb-2">
-              ไม่พบเมนูในหมวดหมู่นี้
-            </h3>
-            <p className="text-gray-500">ลองเลือกหมวดหมู่อื่นดูครับ</p>
           </div>
         )}
 
@@ -699,28 +698,26 @@ function MenuContent() {
           onRemoveItem={removeFromCart}
           onSubmitOrder={submitOrder}
         />
-
-        {/* Debug Panel */}
       </div>
     </div>
   );
 }
 
-// Main page component using Suspense
 export default function SimplifiedMenuPage() {
   return (
     <Suspense
       fallback={
-        <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50 flex items-center justify-center p-4">
+        <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 flex items-center justify-center p-6">
           <div className="text-center">
-            <div className="relative">
-              <div className="w-16 h-16 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin mx-auto mb-6"></div>
-              <div className="absolute inset-0 w-12 h-12 border-4 border-transparent border-t-blue-400 rounded-full animate-spin mx-auto mt-2 ml-2"></div>
+            <div className="relative mb-8">
+              <div className="w-20 h-20 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin mx-auto shadow-lg"></div>
+              <div className="absolute inset-0 w-16 h-16 border-4 border-transparent border-t-indigo-400 rounded-full animate-spin mx-auto mt-2 ml-2"></div>
+              <div className="absolute inset-0 w-12 h-12 border-4 border-transparent border-t-purple-300 rounded-full animate-spin mx-auto mt-4 ml-4"></div>
             </div>
-            <h2 className="text-xl font-semibold text-gray-700 mb-2">
+            <h2 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent mb-3">
               กำลังโหลด...
             </h2>
-            <p className="text-gray-500">โปรดรอสักครู่</p>
+            <p className="text-gray-600 text-lg">โปรดรอสักครู่</p>
           </div>
         </div>
       }

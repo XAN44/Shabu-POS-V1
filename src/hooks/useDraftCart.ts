@@ -281,6 +281,7 @@ export function useDraftCart(
 
 interface TableData {
   number: string;
+  status: string;
 }
 
 export function useTableData(tableId: string | null) {

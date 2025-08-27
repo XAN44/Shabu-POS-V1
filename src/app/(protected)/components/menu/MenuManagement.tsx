@@ -2,7 +2,16 @@ import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Edit, Trash2, Eye, EyeOff } from "lucide-react";
+import {
+  Plus,
+  Edit,
+  Trash2,
+  Eye,
+  EyeOff,
+  TrendingUp,
+  Sparkles,
+  ChefHat,
+} from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -196,327 +205,652 @@ export const MenuManagement: React.FC<MenuManagementProps> = ({
   };
 
   return (
-    <div className="space-y-6">
-      {/* Summary */}
-      <div className="grid grid-cols-3 gap-4">
-        <Card>
-          <CardContent className="p-4 text-center">
-            <div className="text-2xl font-bold">{menuStats.total}</div>
-            <div className="text-sm text-gray-600">เมนูทั้งหมด</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4 text-center">
-            <div className="text-2xl font-bold text-green-600">
-              {menuStats.available}
+    <div className="space-y-8">
+      {/* Premium Summary Cards */}
+      <div className="relative overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-br from-blue-600 via-purple-600 to-indigo-700 opacity-90 rounded-3xl"></div>
+        <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/10 to-white/20 rounded-3xl"></div>
+
+        <div className="relative p-8 rounded-3xl border border-white/20 shadow-2xl backdrop-blur-xl">
+          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6 mb-8">
+            <div className="flex items-center gap-4">
+              <div className="relative">
+                <div className="w-16 h-16 bg-gradient-to-br from-white/20 to-white/10 rounded-2xl flex items-center justify-center shadow-2xl backdrop-blur-sm border border-white/30">
+                  <ChefHat className="w-8 h-8 text-white" />
+                </div>
+                <div className="absolute -top-1 -right-1 w-6 h-6 bg-gradient-to-br from-amber-400 to-orange-500 rounded-full flex items-center justify-center shadow-lg animate-bounce">
+                  <Sparkles className="w-3 h-3 text-white" />
+                </div>
+              </div>
+              <div>
+                <h2 className="text-4xl font-bold text-white mb-2">
+                  จัดการเมนูอาหาร
+                </h2>
+                <p className="text-blue-100 text-lg font-medium">
+                  ระบบจัดการเมนูแบบเรียลไทม์
+                </p>
+              </div>
             </div>
-            <div className="text-sm text-gray-600">พร้อมขาย</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4 text-center">
-            <div className="text-2xl font-bold text-red-600">
-              {menuStats.unavailable}
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {/* Total Menu Items */}
+            <div className="relative group">
+              <div className="absolute inset-0 bg-gradient-to-br from-white/20 to-white/10 rounded-2xl blur-lg transition-all duration-300 group-hover:blur-xl group-hover:scale-110"></div>
+              <div className="relative bg-white/90 backdrop-blur-lg rounded-2xl p-6 shadow-xl border border-white/50 transition-all duration-300 hover:shadow-2xl hover:-translate-y-1">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="w-14 h-14 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg">
+                    <TrendingUp className="w-7 h-7 text-white" />
+                  </div>
+                  <Sparkles className="w-5 h-5 text-blue-500 animate-pulse" />
+                </div>
+                <div className="text-4xl font-bold bg-gradient-to-br from-gray-900 to-gray-700 bg-clip-text text-transparent mb-2">
+                  {menuStats.total}
+                </div>
+                <div className="text-sm text-gray-600 font-semibold">
+                  เมนูทั้งหมด
+                </div>
+                <div className="mt-3 w-full h-1.5 bg-gradient-to-r from-blue-500 to-indigo-500 rounded-full"></div>
+              </div>
             </div>
-            <div className="text-sm text-gray-600">หมด</div>
-          </CardContent>
-        </Card>
+
+            {/* Available Items */}
+            <div className="relative group">
+              <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/20 to-green-500/20 rounded-2xl blur-lg transition-all duration-300 group-hover:blur-xl group-hover:scale-110"></div>
+              <div className="relative bg-white/90 backdrop-blur-lg rounded-2xl p-6 shadow-xl border border-white/50 transition-all duration-300 hover:shadow-2xl hover:-translate-y-1">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="w-14 h-14 bg-gradient-to-br from-emerald-500 to-green-600 rounded-xl flex items-center justify-center shadow-lg">
+                    <Eye className="w-7 h-7 text-white" />
+                  </div>
+                  {menuStats.available > 0 && (
+                    <div className="w-3 h-3 bg-emerald-500 rounded-full animate-pulse"></div>
+                  )}
+                </div>
+                <div className="text-4xl font-bold bg-gradient-to-br from-emerald-700 to-green-700 bg-clip-text text-transparent mb-2">
+                  {menuStats.available}
+                </div>
+                <div className="text-sm text-gray-600 font-semibold">
+                  พร้อมขาย
+                </div>
+                <div className="mt-3 w-full h-1.5 bg-gradient-to-r from-emerald-500 to-green-500 rounded-full"></div>
+              </div>
+            </div>
+
+            {/* Unavailable Items */}
+            <div className="relative group">
+              <div className="absolute inset-0 bg-gradient-to-br from-red-500/20 to-pink-500/20 rounded-2xl blur-lg transition-all duration-300 group-hover:blur-xl group-hover:scale-110"></div>
+              <div className="relative bg-white/90 backdrop-blur-lg rounded-2xl p-6 shadow-xl border border-white/50 transition-all duration-300 hover:shadow-2xl hover:-translate-y-1">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="w-14 h-14 bg-gradient-to-br from-red-500 to-pink-600 rounded-xl flex items-center justify-center shadow-lg">
+                    <EyeOff className="w-7 h-7 text-white" />
+                  </div>
+                </div>
+                <div className="text-4xl font-bold bg-gradient-to-br from-red-700 to-pink-700 bg-clip-text text-transparent mb-2">
+                  {menuStats.unavailable}
+                </div>
+                <div className="text-sm text-gray-600 font-semibold">หมด</div>
+                <div className="mt-3 w-full h-1.5 bg-gradient-to-r from-red-500 to-pink-500 rounded-full"></div>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Header with filters and add button */}
-      <div className="flex justify-between items-center">
-        <div className="flex items-center gap-4">
-          <h2 className="text-xl font-semibold">จัดการเมนู</h2>
-          <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-            <SelectTrigger className="w-48">
-              <SelectValue placeholder="เลือกหมวดหมู่" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">หมวดหมู่ทั้งหมด</SelectItem>
-              {categories.map((category) => (
-                <SelectItem key={category} value={category}>
-                  {category}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <Button onClick={() => setShowAddDialog(true)}>
-          <Plus className="w-4 h-4 mr-2" />
-          เพิ่มเมนูใหม่
-        </Button>
-      </div>
-
-      {/* Menu Items Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {filteredItems.map((item) => (
-          <Card
-            key={item.id}
-            className={`relative overflow-hidden transition-all duration-300 hover:shadow-lg ${
-              !item.available ? "opacity-60 grayscale" : ""
-            }`}
-          >
-            {/* Image Section */}
-            <div className="relative h-48 sm:h-56 w-full">
-              {item.image ? (
-                <Image
-                  src={item.image}
-                  alt={item.name}
-                  layout="fill"
-                  objectFit="cover"
-                  className="transition-transform duration-300 hover:scale-105"
-                />
-              ) : (
-                <div className="w-full h-full bg-gray-200 flex items-center justify-center text-gray-500 text-sm">
-                  ไม่มีภาพประกอบ
+      <div className="relative overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-br from-orange-50 via-amber-50 to-yellow-50 opacity-70 rounded-3xl"></div>
+        <div className="relative bg-white/90 backdrop-blur-xl rounded-3xl border border-orange-200/50 shadow-xl p-6">
+          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 bg-gradient-to-br from-orange-500 to-amber-600 rounded-2xl flex items-center justify-center shadow-lg">
+                  <ChefHat className="w-6 h-6 text-white" />
                 </div>
-              )}
-              <Badge
-                className={`absolute top-2 left-2 text-sm font-semibold z-10 ${
-                  item.available ? "bg-green-600" : "bg-red-600"
-                }`}
+                <h3 className="text-2xl font-bold bg-gradient-to-r from-orange-800 to-amber-800 bg-clip-text text-transparent">
+                  รายการเมนู
+                </h3>
+              </div>
+
+              <Select
+                value={selectedCategory}
+                onValueChange={setSelectedCategory}
               >
-                {item.available ? "พร้อมขาย" : "หมด"}
-              </Badge>
-              <Badge
-                variant="secondary"
-                className="absolute top-2 right-2 text-sm font-semibold z-10"
-              >
-                {item.category}
-              </Badge>
+                <SelectTrigger className="w-full sm:w-64 bg-white/80 backdrop-blur-sm border-orange-200 rounded-2xl shadow-lg">
+                  <SelectValue placeholder="เลือกหมวดหมู่" />
+                </SelectTrigger>
+                <SelectContent className="bg-white/95 backdrop-blur-xl border-orange-200 rounded-2xl">
+                  <SelectItem value="all" className="rounded-xl">
+                    หมวดหมู่ทั้งหมด
+                  </SelectItem>
+                  {categories.map((category) => (
+                    <SelectItem
+                      key={category}
+                      value={category}
+                      className="rounded-xl"
+                    >
+                      {category}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
-            {/* Content Section */}
-            <CardContent className="p-4 space-y-3">
-              <div className="flex justify-between items-start">
-                <CardTitle className="text-xl font-bold">{item.name}</CardTitle>
-                <span className="text-2xl font-extrabold text-blue-600">
-                  ฿{item.price.toLocaleString()}
-                </span>
+            <Button
+              onClick={() => setShowAddDialog(true)}
+              className="bg-gradient-to-r from-blue-600 to-indigo-700 hover:from-blue-700 hover:to-indigo-800 text-white font-semibold px-8 py-3 rounded-2xl shadow-lg transition-all duration-300 hover:shadow-xl hover:scale-105"
+            >
+              <Plus className="w-5 h-5 mr-2" />
+              เพิ่มเมนูใหม่
+            </Button>
+          </div>
+        </div>
+      </div>
+
+      {/* Premium Menu Items Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
+        {filteredItems.map((item) => (
+          <div key={item.id} className="relative group">
+            {/* Animated background */}
+            <div
+              className={`absolute inset-0 ${
+                item.available
+                  ? "bg-gradient-to-br from-emerald-100 via-green-100 to-teal-100"
+                  : "bg-gradient-to-br from-gray-100 via-slate-100 to-zinc-100"
+              } opacity-70 rounded-3xl blur-lg transition-all duration-300 group-hover:blur-xl group-hover:scale-105`}
+            ></div>
+
+            <Card
+              className={`relative overflow-hidden transition-all duration-500 hover:shadow-2xl hover:-translate-y-2 bg-white/90 backdrop-blur-xl rounded-3xl border ${
+                item.available ? "border-emerald-200/50" : "border-gray-200/50"
+              } shadow-xl ${!item.available ? "opacity-70" : ""}`}
+            >
+              {/* Premium status indicator */}
+              <div
+                className={`absolute top-0 left-0 right-0 h-1.5 ${
+                  item.available
+                    ? "bg-gradient-to-r from-emerald-500 via-green-500 to-teal-500"
+                    : "bg-gradient-to-r from-gray-400 via-slate-400 to-zinc-400"
+                } rounded-t-3xl`}
+              ></div>
+
+              {/* Image Section with premium overlay */}
+              <div className="relative h-56 w-full overflow-hidden">
+                {item.image ? (
+                  <div className="relative w-full h-full">
+                    <Image
+                      src={item.image}
+                      alt={item.name}
+                      layout="fill"
+                      objectFit="cover"
+                      className="transition-all duration-500 group-hover:scale-110"
+                    />
+                    {/* Premium overlay gradient */}
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/30 via-transparent to-transparent"></div>
+                  </div>
+                ) : (
+                  <div className="w-full h-full bg-gradient-to-br from-gray-200 via-gray-100 to-gray-50 flex flex-col items-center justify-center">
+                    <ChefHat className="w-12 h-12 text-gray-400 mb-2" />
+                    <span className="text-gray-500 text-sm font-medium">
+                      ไม่มีภาพประกอบ
+                    </span>
+                  </div>
+                )}
+
+                {/* Premium badges */}
+                <div className="absolute top-4 left-4 right-4 flex justify-between items-start">
+                  <Badge
+                    className={`${
+                      item.available
+                        ? "bg-gradient-to-r from-emerald-500 to-green-600 shadow-lg animate-pulse"
+                        : "bg-gradient-to-r from-red-500 to-pink-600 shadow-lg"
+                    } text-white font-bold px-3 py-1.5 rounded-xl border-0`}
+                  >
+                    {item.available ? "พร้อมขาย" : "หมด"}
+                  </Badge>
+
+                  <Badge className="bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-bold px-3 py-1.5 rounded-xl border-0 shadow-lg">
+                    {item.category}
+                  </Badge>
+                </div>
+
+                {/* Sparkles for available items */}
+                {item.available && (
+                  <div className="absolute bottom-4 right-4">
+                    <Sparkles className="w-6 h-6 text-yellow-400 animate-bounce" />
+                  </div>
+                )}
               </div>
 
-              {item.description && (
-                <p className="text-sm text-gray-600 line-clamp-2">
-                  {item.description}
-                </p>
-              )}
+              {/* Premium Content Section */}
+              <CardContent className="p-6 space-y-4">
+                <div className="flex justify-between items-start gap-4">
+                  <div className="flex-1">
+                    <CardTitle className="text-xl font-bold bg-gradient-to-r from-gray-800 to-gray-600 bg-clip-text text-transparent mb-2">
+                      {item.name}
+                    </CardTitle>
+                    <div className="w-16 h-0.5 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full"></div>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-3xl font-extrabold bg-gradient-to-r from-emerald-600 to-green-700 bg-clip-text text-transparent">
+                      ฿{item.price.toLocaleString()}
+                    </div>
+                  </div>
+                </div>
 
-              {/* Action Buttons */}
-              <div className="flex justify-end gap-2 pt-2 border-t mt-4 -mx-4 px-4">
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => toggleAvailability(item.id, !item.available)}
-                  title={item.available ? "ซ่อนเมนู" : "แสดงเมนู"}
-                >
-                  {item.available ? (
-                    <Eye className="w-5 h-5 text-green-600" />
-                  ) : (
-                    <EyeOff className="w-5 h-5 text-red-600" />
-                  )}
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => handleEdit(item)}
-                  title="แก้ไข"
-                >
-                  <Edit className="w-5 h-5" />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => handleDelete(item.id)}
-                  title="ลบ"
-                >
-                  <Trash2 className="w-5 h-5 text-red-600" />
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
+                {item.description && (
+                  <div className="relative">
+                    <div className="absolute inset-0 bg-gradient-to-r from-gray-50 to-slate-50 rounded-2xl opacity-50"></div>
+                    <p className="relative text-sm text-gray-600 line-clamp-2 p-3 bg-white/60 backdrop-blur-sm rounded-2xl border border-gray-100">
+                      {item.description}
+                    </p>
+                  </div>
+                )}
+
+                {/* Premium Action Buttons */}
+                <div className="flex justify-end gap-2 pt-4 border-t border-gray-100">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => toggleAvailability(item.id, !item.available)}
+                    className={`rounded-xl transition-all duration-300 hover:scale-110 ${
+                      item.available
+                        ? "hover:bg-green-100 text-green-600"
+                        : "hover:bg-red-100 text-red-600"
+                    }`}
+                    title={item.available ? "ซ่อนเมนู" : "แสดงเมนู"}
+                  >
+                    {item.available ? (
+                      <Eye className="w-5 h-5" />
+                    ) : (
+                      <EyeOff className="w-5 h-5" />
+                    )}
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => handleEdit(item)}
+                    className="rounded-xl transition-all duration-300 hover:scale-110 hover:bg-blue-100 text-blue-600"
+                    title="แก้ไข"
+                  >
+                    <Edit className="w-5 h-5" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => handleDelete(item.id)}
+                    className="rounded-xl transition-all duration-300 hover:scale-110 hover:bg-red-100 text-red-600"
+                    title="ลบ"
+                  >
+                    <Trash2 className="w-5 h-5" />
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
         ))}
       </div>
 
-      {/* Add Menu Item Dialog */}
+      {/* Empty state */}
+      {filteredItems.length === 0 && (
+        <div className="relative overflow-hidden">
+          <div className="absolute inset-0 bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 opacity-60 rounded-3xl"></div>
+          <div className="relative bg-white/80 backdrop-blur-xl rounded-3xl border border-white/30 shadow-2xl p-16 text-center">
+            <div className="relative inline-block mb-6">
+              <div className="w-24 h-24 bg-gradient-to-br from-gray-100 via-slate-100 to-zinc-100 rounded-3xl flex items-center justify-center mx-auto shadow-2xl">
+                <ChefHat className="w-12 h-12 text-gray-400" />
+              </div>
+              <div className="absolute -top-2 -right-2 w-8 h-8 bg-gradient-to-br from-amber-400 to-orange-500 rounded-full flex items-center justify-center shadow-lg">
+                <Sparkles className="w-4 h-4 text-white" />
+              </div>
+            </div>
+            <h3 className="text-3xl font-bold bg-gradient-to-r from-gray-800 via-gray-700 to-gray-600 bg-clip-text text-transparent mb-4">
+              ไม่มีเมนูในหมวดหมู่นี้
+            </h3>
+            <p className="text-lg text-gray-500 font-medium">
+              เริ่มต้นเพิ่มเมนูอร่อยๆ กันเลย
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Premium Add Menu Item Dialog */}
       <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>เพิ่มเมนูใหม่</DialogTitle>
-            <DialogDescription>กรอกข้อมูลเมนูใหม่</DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-4 py-4">
-            {file && (
-              <Image
-                width={1033}
-                height={1033}
-                src={URL.createObjectURL(file)}
-                alt="Preview"
-                className="w-full h-96  object-fill rounded"
-              />
-            )}
+        <DialogContent className="max-w-2xl bg-white/95 backdrop-blur-xl border-0 rounded-3xl shadow-2xl">
+          <div className="absolute inset-0 bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 opacity-50 rounded-3xl"></div>
+          <div className="relative">
+            <DialogHeader className="space-y-4">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl flex items-center justify-center shadow-lg">
+                  <Plus className="w-6 h-6 text-white" />
+                </div>
+                <div>
+                  <DialogTitle className="text-2xl font-bold bg-gradient-to-r from-gray-800 to-gray-600 bg-clip-text text-transparent">
+                    เพิ่มเมนูใหม่
+                  </DialogTitle>
+                  <DialogDescription className="text-gray-600 font-medium">
+                    กรอกข้อมูลเมนูใหม่ที่ต้องการเพิ่ม
+                  </DialogDescription>
+                </div>
+              </div>
+            </DialogHeader>
 
-            <div className="grid gap-2">
-              <Label htmlFor="file">รูปเมนู (ไม่จำเป็น)</Label>
-              <Input
-                id=""
-                type="file"
-                accept="image/*"
-                onChange={(e) => handleFileChange(e.target.files?.[0] || null)}
-              />
-              <Label htmlFor="name">ชื่อเมนู</Label>
-              <Input
-                id="name"
-                value={formData.name}
-                onChange={(e) =>
-                  setFormData({ ...formData, name: e.target.value })
-                }
-                placeholder="เช่น ผัดไทย"
-              />
+            <div className="grid gap-6 py-6">
+              {file && (
+                <div className="relative">
+                  <Image
+                    width={400}
+                    height={300}
+                    src={URL.createObjectURL(file)}
+                    alt="Preview"
+                    className="w-full h-72 object-cover rounded-2xl shadow-lg"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/20 via-transparent to-transparent rounded-2xl"></div>
+                </div>
+              )}
+
+              <div className="grid gap-4">
+                <div className="space-y-2">
+                  <Label
+                    htmlFor="file"
+                    className="text-sm font-semibold text-gray-700"
+                  >
+                    รูปเมนู (ไม่จำเป็น)
+                  </Label>
+                  <Input
+                    id="file"
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) =>
+                      handleFileChange(e.target.files?.[0] || null)
+                    }
+                    className="bg-white/80 backdrop-blur-sm border-gray-200 rounded-2xl focus:ring-2 focus:ring-blue-500/20"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label
+                    htmlFor="name"
+                    className="text-sm font-semibold text-gray-700"
+                  >
+                    ชื่อเมนู
+                  </Label>
+                  <Input
+                    id="name"
+                    value={formData.name}
+                    onChange={(e) =>
+                      setFormData({ ...formData, name: e.target.value })
+                    }
+                    placeholder="เช่น ผัดไทย"
+                    className="bg-white/80 backdrop-blur-sm border-gray-200 rounded-2xl focus:ring-2 focus:ring-blue-500/20"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label
+                      htmlFor="price"
+                      className="text-sm font-semibold text-gray-700"
+                    >
+                      ราคา
+                    </Label>
+                    <Input
+                      id="price"
+                      type="number"
+                      value={formData.price}
+                      onChange={(e) =>
+                        setFormData({ ...formData, price: e.target.value })
+                      }
+                      placeholder="0"
+                      className="bg-white/80 backdrop-blur-sm border-gray-200 rounded-2xl focus:ring-2 focus:ring-blue-500/20"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label
+                      htmlFor="category"
+                      className="text-sm font-semibold text-gray-700"
+                    >
+                      หมวดหมู่
+                    </Label>
+                    <Select
+                      value={formData.category}
+                      onValueChange={(value) =>
+                        setFormData({ ...formData, category: value })
+                      }
+                    >
+                      <SelectTrigger className="bg-white/80 backdrop-blur-sm border-gray-200 rounded-2xl focus:ring-2 focus:ring-blue-500/20">
+                        <SelectValue placeholder="เลือกหมวดหมู่" />
+                      </SelectTrigger>
+                      <SelectContent className="bg-white/95 backdrop-blur-xl border-gray-200 rounded-2xl">
+                        {categories.map((category) => (
+                          <SelectItem
+                            key={category}
+                            value={category}
+                            className="rounded-xl"
+                          >
+                            {category}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label
+                    htmlFor="description"
+                    className="text-sm font-semibold text-gray-700"
+                  >
+                    คำอธิบาย (ไม่จำเป็น)
+                  </Label>
+                  <Textarea
+                    id="description"
+                    value={formData.description}
+                    onChange={(e) =>
+                      setFormData({ ...formData, description: e.target.value })
+                    }
+                    placeholder="รายละเอียดเมนู..."
+                    rows={3}
+                    className="bg-white/80 backdrop-blur-sm border-gray-200 rounded-2xl focus:ring-2 focus:ring-blue-500/20 resize-none"
+                  />
+                </div>
+              </div>
             </div>
-            <div className="grid gap-2">
-              <Label htmlFor="price">ราคา</Label>
-              <Input
-                id="price"
-                type="number"
-                value={formData.price}
-                onChange={(e) =>
-                  setFormData({ ...formData, price: e.target.value })
-                }
-                placeholder="0"
-              />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="category">หมวดหมู่</Label>
-              <Select
-                value={formData.category}
-                onValueChange={(value) =>
-                  setFormData({ ...formData, category: value })
-                }
+
+            <DialogFooter className="gap-3">
+              <Button
+                variant="outline"
+                onClick={() => setShowAddDialog(false)}
+                className="bg-white/80 backdrop-blur-sm border-gray-200 text-gray-700 rounded-2xl hover:bg-gray-50 transition-all duration-300"
               >
-                <SelectTrigger>
-                  <SelectValue placeholder="เลือกหมวดหมู่" />
-                </SelectTrigger>
-                <SelectContent>
-                  {categories.map((category) => (
-                    <SelectItem key={category} value={category}>
-                      {category}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="description">คำอธิบาย (ไม่จำเป็น)</Label>
-              <Textarea
-                id="description"
-                value={formData.description}
-                onChange={(e) =>
-                  setFormData({ ...formData, description: e.target.value })
-                }
-                placeholder="รายละเอียดเมนู..."
-                rows={3}
-              />
-            </div>
+                ยกเลิก
+              </Button>
+              <Button
+                onClick={handleAdd}
+                className="bg-gradient-to-r from-blue-600 to-indigo-700 hover:from-blue-700 hover:to-indigo-800 text-white rounded-2xl shadow-lg transition-all duration-300 hover:shadow-xl"
+              >
+                เพิ่มเมนู
+              </Button>
+            </DialogFooter>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowAddDialog(false)}>
-              ยกเลิก
-            </Button>
-            <Button onClick={handleAdd}>เพิ่ม</Button>
-          </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Edit Menu Item Dialog */}
+      {/* Premium Edit Menu Item Dialog */}
       <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>แก้ไขเมนู</DialogTitle>
-            <DialogDescription>แก้ไขข้อมูลเมนู</DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid gap-2">
-              <Label htmlFor="edit-name">ชื่อเมนู</Label>
-              <Input
-                id="edit-name"
-                value={formData.name}
-                onChange={(e) =>
-                  setFormData({ ...formData, name: e.target.value })
-                }
-              />
+        <DialogContent className="max-w-2xl bg-white/95 backdrop-blur-xl border-0 rounded-3xl shadow-2xl">
+          <div className="absolute inset-0 bg-gradient-to-br from-emerald-50 via-green-50 to-teal-50 opacity-50 rounded-3xl"></div>
+          <div className="relative">
+            <DialogHeader className="space-y-4">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 bg-gradient-to-br from-emerald-500 to-green-600 rounded-2xl flex items-center justify-center shadow-lg">
+                  <Edit className="w-6 h-6 text-white" />
+                </div>
+                <div>
+                  <DialogTitle className="text-2xl font-bold bg-gradient-to-r from-gray-800 to-gray-600 bg-clip-text text-transparent">
+                    แก้ไขเมนู
+                  </DialogTitle>
+                  <DialogDescription className="text-gray-600 font-medium">
+                    แก้ไขข้อมูลเมนูที่เลือก
+                  </DialogDescription>
+                </div>
+              </div>
+            </DialogHeader>
+
+            <div className="grid gap-6 py-6">
+              <div className="grid gap-4">
+                <div className="space-y-2">
+                  <Label
+                    htmlFor="edit-name"
+                    className="text-sm font-semibold text-gray-700"
+                  >
+                    ชื่อเมนู
+                  </Label>
+                  <Input
+                    id="edit-name"
+                    value={formData.name}
+                    onChange={(e) =>
+                      setFormData({ ...formData, name: e.target.value })
+                    }
+                    className="bg-white/80 backdrop-blur-sm border-gray-200 rounded-2xl focus:ring-2 focus:ring-emerald-500/20"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label
+                      htmlFor="edit-price"
+                      className="text-sm font-semibold text-gray-700"
+                    >
+                      ราคา
+                    </Label>
+                    <Input
+                      id="edit-price"
+                      type="number"
+                      value={formData.price}
+                      onChange={(e) =>
+                        setFormData({ ...formData, price: e.target.value })
+                      }
+                      className="bg-white/80 backdrop-blur-sm border-gray-200 rounded-2xl focus:ring-2 focus:ring-emerald-500/20"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label
+                      htmlFor="edit-category"
+                      className="text-sm font-semibold text-gray-700"
+                    >
+                      หมวดหมู่
+                    </Label>
+                    <Select
+                      value={formData.category}
+                      onValueChange={(value) =>
+                        setFormData({ ...formData, category: value })
+                      }
+                    >
+                      <SelectTrigger className="bg-white/80 backdrop-blur-sm border-gray-200 rounded-2xl focus:ring-2 focus:ring-emerald-500/20">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent className="bg-white/95 backdrop-blur-xl border-gray-200 rounded-2xl">
+                        {categories.map((category) => (
+                          <SelectItem
+                            key={category}
+                            value={category}
+                            className="rounded-xl"
+                          >
+                            {category}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label
+                    htmlFor="edit-description"
+                    className="text-sm font-semibold text-gray-700"
+                  >
+                    คำอธิบาย
+                  </Label>
+                  <Textarea
+                    id="edit-description"
+                    value={formData.description}
+                    onChange={(e) =>
+                      setFormData({ ...formData, description: e.target.value })
+                    }
+                    rows={3}
+                    className="bg-white/80 backdrop-blur-sm border-gray-200 rounded-2xl focus:ring-2 focus:ring-emerald-500/20 resize-none"
+                  />
+                </div>
+              </div>
             </div>
-            <div className="grid gap-2">
-              <Label htmlFor="edit-price">ราคา</Label>
-              <Input
-                id="edit-price"
-                type="number"
-                value={formData.price}
-                onChange={(e) =>
-                  setFormData({ ...formData, price: e.target.value })
-                }
-              />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="edit-category">หมวดหมู่</Label>
-              <Select
-                value={formData.category}
-                onValueChange={(value) =>
-                  setFormData({ ...formData, category: value })
-                }
+
+            <DialogFooter className="gap-3">
+              <Button
+                variant="outline"
+                onClick={() => setShowEditDialog(false)}
+                className="bg-white/80 backdrop-blur-sm border-gray-200 text-gray-700 rounded-2xl hover:bg-gray-50 transition-all duration-300"
               >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {categories.map((category) => (
-                    <SelectItem key={category} value={category}>
-                      {category}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="edit-description">คำอธิบาย</Label>
-              <Textarea
-                id="edit-description"
-                value={formData.description}
-                onChange={(e) =>
-                  setFormData({ ...formData, description: e.target.value })
-                }
-                rows={3}
-              />
-            </div>
+                ยกเลิก
+              </Button>
+              <Button
+                onClick={handleSaveEdit}
+                className="bg-gradient-to-r from-emerald-600 to-green-700 hover:from-emerald-700 hover:to-green-800 text-white rounded-2xl shadow-lg transition-all duration-300 hover:shadow-xl"
+              >
+                บันทึกการเปลี่ยนแปลง
+              </Button>
+            </DialogFooter>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowEditDialog(false)}>
-              ยกเลิก
-            </Button>
-            <Button onClick={handleSaveEdit}>บันทึก</Button>
-          </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Delete Confirmation Dialog */}
+      {/* Premium Delete Confirmation Dialog */}
       <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>ยืนยันการลบเมนู</DialogTitle>
-            <DialogDescription>
-              คุณแน่ใจหรือไม่ที่จะลบเมนูนี้? การดำเนินการนี้ไม่สามารถยกเลิกได้
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setShowDeleteDialog(false)}
-            >
-              ยกเลิก
-            </Button>
-            <Button variant="destructive" onClick={confirmDelete}>
-              ลบเมนู
-            </Button>
-          </DialogFooter>
+        <DialogContent className="max-w-md bg-white/95 backdrop-blur-xl border-0 rounded-3xl shadow-2xl">
+          <div className="absolute inset-0 bg-gradient-to-br from-red-50 via-pink-50 to-rose-50 opacity-50 rounded-3xl"></div>
+          <div className="relative">
+            <DialogHeader className="space-y-4">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 bg-gradient-to-br from-red-500 to-pink-600 rounded-2xl flex items-center justify-center shadow-lg">
+                  <Trash2 className="w-6 h-6 text-white" />
+                </div>
+                <div>
+                  <DialogTitle className="text-2xl font-bold bg-gradient-to-r from-red-700 to-pink-700 bg-clip-text text-transparent">
+                    ยืนยันการลบเมนู
+                  </DialogTitle>
+                  <DialogDescription className="text-gray-600 font-medium">
+                    การดำเนินการนี้ไม่สามารถยกเลิกได้
+                  </DialogDescription>
+                </div>
+              </div>
+            </DialogHeader>
+
+            <div className="py-6">
+              <div className="p-6 bg-red-50/50 backdrop-blur-sm rounded-2xl border border-red-100">
+                <p className="text-gray-700">
+                  คุณแน่ใจหรือไม่ที่จะลบเมนูนี้? เมนูที่ถูกลบจะหายไปอย่างถาวร
+                </p>
+              </div>
+            </div>
+
+            <DialogFooter className="gap-3">
+              <Button
+                variant="outline"
+                onClick={() => setShowDeleteDialog(false)}
+                className="bg-white/80 backdrop-blur-sm border-gray-200 text-gray-700 rounded-2xl hover:bg-gray-50 transition-all duration-300"
+              >
+                ยกเลิก
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={confirmDelete}
+                className="bg-gradient-to-r from-red-600 to-pink-700 hover:from-red-700 hover:to-pink-800 text-white rounded-2xl shadow-lg transition-all duration-300 hover:shadow-xl"
+              >
+                ลบเมนูอย่างถาวร
+              </Button>
+            </DialogFooter>
+          </div>
         </DialogContent>
       </Dialog>
     </div>

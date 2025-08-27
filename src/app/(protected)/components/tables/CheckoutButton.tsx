@@ -216,7 +216,11 @@ export const CheckoutButton: React.FC<CheckoutButtonProps> = ({
               : "เช็คบิล"}
           </span>
           <span className="xs:hidden text-xs">
-            {!hasOrdersToCheckout ? "แล้ว" : hasIncompleteOrders ? "รอ" : "บิล"}
+            {!hasOrdersToCheckout
+              ? "แล้ว"
+              : hasIncompleteOrders
+              ? "กดเพื่อเช็คบิล"
+              : "บิล"}
           </span>
           {hasOrdersToCheckout && (
             <span className="hidden xs:inline ml-1 px-2 py-0.5 bg-white bg-opacity-20 rounded-full text-xs">

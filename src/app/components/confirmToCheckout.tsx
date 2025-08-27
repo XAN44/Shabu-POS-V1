@@ -32,7 +32,6 @@ export const CheckoutConfirmationDialog: React.FC<
   tableNumber,
   orderCount,
   totalAmount,
-  numberTable,
   isProcessing = false,
 }) => {
   if (!isOpen) return null;

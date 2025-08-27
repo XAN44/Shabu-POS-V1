@@ -20,59 +20,72 @@ export const OrderStatusComponents: React.FC<OrderStatusProps> = ({
     return null;
   }
 
+  const totalOrders = activeOrders.length + servedOrders.length;
+
   return (
-    <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-lg p-6 border border-white/20">
-      <h2 className="text-xl font-semibold mb-4 flex items-center text-gray-800">
-        <div className="bg-orange-100 p-2 rounded-lg mr-3">
-          <ShoppingCart className="w-5 h-5 text-orange-600" />
+    <div className="w-full bg-white/90 backdrop-blur-sm rounded-2xl shadow-lg border border-white/20 p-4 sm:p-6">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
+        <div className="flex items-center">
+          <div className="bg-orange-100 p-2 rounded-lg mr-3 flex-shrink-0">
+            <ShoppingCart className="w-5 h-5 text-orange-600" />
+          </div>
+          <h2 className="text-lg sm:text-xl font-semibold text-gray-800">
+            สถานะออเดอร์ของคุณ
+          </h2>
         </div>
-        สถานะออเดอร์ของคุณ
-        <span className="ml-2 bg-gray-100 text-gray-700 px-3 py-1 rounded-full text-sm">
-          {activeOrders.length + servedOrders.length} ออเดอร์
+        <span className="bg-gray-100 text-gray-700 px-3 py-2 rounded-full text-sm font-medium self-start sm:self-auto">
+          {totalOrders} ออเดอร์
         </span>
-      </h2>
+      </div>
 
-      {/* Active Orders */}
-      {activeOrders.length > 0 && (
-        <div className="mb-6">
-          <h3 className="text-lg font-medium text-gray-700 mb-3 flex items-center">
-            <div className="w-3 h-3 bg-orange-500 rounded-full mr-2"></div>
-            กำลังดำเนินการ ({activeOrders.length} ออเดอร์)
-          </h3>
-          <div className="grid gap-4 md:grid-cols-2">
-            {activeOrders.map((order, orderIndex) => (
-              <OrderCard
-                key={order.id}
-                order={order}
-                orderIndex={orderIndex}
-                status={orderStatuses[order.id] || order.status}
-                variant="active"
-              />
-            ))}
+      <div className="space-y-6">
+        {/* Active Orders Section */}
+        {activeOrders.length > 0 && (
+          <div>
+            <div className="flex items-center mb-4">
+              <div className="w-3 h-3 bg-orange-500 rounded-full mr-2 flex-shrink-0"></div>
+              <h3 className="text-base sm:text-lg font-medium text-gray-700">
+                กำลังดำเนินการ ({activeOrders.length} ออเดอร์)
+              </h3>
+            </div>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              {activeOrders.map((order, orderIndex) => (
+                <OrderCard
+                  key={order.id}
+                  order={order}
+                  orderIndex={orderIndex}
+                  status={orderStatuses[order.id] || order.status}
+                  variant="active"
+                />
+              ))}
+            </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* Served Orders */}
-      {servedOrders.length > 0 && (
-        <div>
-          <h3 className="text-lg font-medium text-gray-700 mb-3 flex items-center">
-            <div className="w-3 h-3 bg-green-500 rounded-full mr-2"></div>
-            เสิร์ฟแล้ว ({servedOrders.length} ออเดอร์)
-          </h3>
-          <div className="grid gap-4 md:grid-cols-2">
-            {servedOrders.map((order, orderIndex) => (
-              <OrderCard
-                key={order.id}
-                order={order}
-                orderIndex={orderIndex}
-                status="served"
-                variant="served"
-              />
-            ))}
+        {/* Served Orders Section */}
+        {servedOrders.length > 0 && (
+          <div>
+            <div className="flex items-center mb-4">
+              <div className="w-3 h-3 bg-green-500 rounded-full mr-2 flex-shrink-0"></div>
+              <h3 className="text-base sm:text-lg font-medium text-gray-700">
+                เสิร์ฟแล้ว ({servedOrders.length} ออเดอร์)
+              </h3>
+            </div>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              {servedOrders.map((order, orderIndex) => (
+                <OrderCard
+                  key={order.id}
+                  order={order}
+                  orderIndex={orderIndex}
+                  status="served"
+                  variant="served"
+                />
+              ))}
+            </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 };
@@ -92,70 +105,80 @@ const OrderCard: React.FC<OrderCardProps> = ({
 }) => {
   const cardClass =
     variant === "active"
-      ? "bg-gradient-to-br from-orange-50 to-yellow-50"
-      : "bg-gradient-to-br from-green-50 to-emerald-50";
+      ? "bg-gradient-to-br from-orange-50 to-yellow-50 border-orange-100"
+      : "bg-gradient-to-br from-green-50 to-emerald-50 border-green-100";
 
   const iconClass = variant === "active" ? "bg-orange-500" : "bg-green-500";
   const icon = variant === "active" ? orderIndex + 1 : "✓";
   const amountColor =
-    variant === "active" ? "text-orange-600" : "text-green-600";
+    variant === "active" ? "text-orange-700" : "text-green-700";
   const itemBadgeColor =
     variant === "active"
-      ? "bg-orange-100 text-orange-800"
-      : "bg-green-100 text-green-800";
+      ? "bg-orange-100 text-orange-800 border-orange-200"
+      : "bg-green-100 text-green-800 border-green-200";
+
+  const borderColor =
+    variant === "active" ? "border-orange-200" : "border-green-200";
 
   return (
     <Card
-      className={`${cardClass} border-0 shadow-md hover:shadow-lg transition-shadow`}
+      className={`${cardClass} border shadow-sm hover:shadow-md transition-all duration-200`}
     >
       <CardContent className="p-4">
-        <div className="flex justify-between items-center mb-3">
-          <h4 className="font-semibold text-gray-800 flex items-center">
+        {/* Card Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
+          <div className="flex items-center min-w-0">
             <span
-              className={`${iconClass} text-white w-6 h-6 rounded-full flex items-center justify-center text-sm mr-2`}
+              className={`${iconClass} text-white w-6 h-6 rounded-full flex items-center justify-center text-sm font-medium mr-3 flex-shrink-0`}
             >
               {icon}
             </span>
-            ออเดอร์ #{order.id.slice(-8)}
-          </h4>
+            <h4 className="font-semibold text-gray-800 text-sm sm:text-base truncate">
+              ออเดอร์ #{order.id.slice(-8)}
+            </h4>
+          </div>
           <Badge
-            className={`${getStatusColor(status)} px-3 py-1 font-medium border`}
+            className={`${getStatusColor(
+              status
+            )} px-2 sm:px-3 py-1 font-medium border text-xs sm:text-sm flex-shrink-0 self-start sm:self-auto`}
           >
             {getStatusText(status)}
           </Badge>
         </div>
 
-        <div className="space-y-2">
+        {/* Order Items */}
+        <div className="space-y-2 mb-4">
           {order.items.map((item, itemIndex) => (
             <div
               key={itemIndex}
-              className="flex justify-between items-center text-sm bg-white/70 rounded-lg p-2"
+              className="bg-white/70 rounded-lg p-3 border border-white/50"
             >
-              <p className="flex-1 font-medium text-gray-700">
-                {item.menuItem.name}
-              </p>
-              <div className="flex items-center gap-3">
-                <span
-                  className={`${itemBadgeColor} px-2 py-1 rounded-full text-xs font-medium`}
-                >
-                  ×{item.quantity}
-                </span>
-                <span className="font-semibold text-gray-800 min-w-[60px] text-right">
-                  ฿{(item.menuItem.price * item.quantity).toLocaleString()}
-                </span>
+              <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
+                <p className="flex-1 font-medium text-gray-700 text-sm min-w-0">
+                  {item.menuItem.name}
+                </p>
+                <div className="flex items-center justify-between sm:justify-end gap-3 flex-shrink-0">
+                  <span
+                    className={`${itemBadgeColor} px-2 py-1 rounded-full text-xs font-medium border`}
+                  >
+                    ×{item.quantity}
+                  </span>
+                  <span className="font-semibold text-gray-800 text-sm min-w-[60px] text-right">
+                    ฿{(item.menuItem.price * item.quantity).toLocaleString()}
+                  </span>
+                </div>
               </div>
             </div>
           ))}
         </div>
 
-        <div
-          className={`mt-3 pt-2 border-t ${
-            variant === "active" ? "border-orange-200" : "border-green-200"
-          }`}
-        >
-          <div className="flex justify-between items-center font-semibold">
-            <span className="text-gray-700">รวม:</span>
-            <span className={amountColor}>
+        {/* Total Amount */}
+        <div className={`pt-3 border-t ${borderColor}`}>
+          <div className="flex items-center justify-between">
+            <span className="text-gray-700 font-medium text-sm sm:text-base">
+              รวม:
+            </span>
+            <span className={`${amountColor} font-bold text-base sm:text-lg`}>
               ฿{order.totalAmount.toLocaleString()}
             </span>
           </div>

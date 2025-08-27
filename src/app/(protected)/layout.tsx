@@ -1,8 +1,8 @@
 "use client";
 
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
-import { AppSidebar } from "../components/AppSidebar/AppSidebar";
 import { useState } from "react";
+import { AppSidebar } from "./components/AppSidebar/AppSidebar";
 
 export default function Layout({ children }: { children: React.ReactNode }) {
   const [sidebarOpen] = useState(true);
