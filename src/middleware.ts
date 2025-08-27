@@ -13,8 +13,6 @@ const { auth } = NextAuth(authConfig);
 export default auth((req) => {
   const { nextUrl } = req;
   const isLoggedIn = !!req.auth;
-
-  // Paths ที่อนุญาตให้เข้าถึงได้โดยไม่ต้องล็อกอิน
   const publicApiRoutes = [
     "/api/tables",
     "/api/menu",

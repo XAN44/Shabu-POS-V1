@@ -33,7 +33,7 @@ async function main() {
     data: {
       email,
       password: hashed,
-      role: "owner",
+      role: "Owner",
     },
   });
 

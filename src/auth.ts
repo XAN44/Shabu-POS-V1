@@ -25,7 +25,6 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       if (token.sub && session.user) {
         session.user.id = token.sub;
       }
-
       if (token.role && session.user) {
         session.user.role = token.role as string;
       }
@@ -33,17 +32,16 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     },
     async jwt({ token }) {
       if (!token.sub) return token;
-
       const existingUser = await db.user.findUnique({
-        where: {
-          id: token.sub,
-        },
+        where: { id: token.sub },
       });
-
-      if (!existingUser) return token;
-
-      token.role = existingUser.role;
-
+      if (existingUser) {
+        token.role = existingUser.role;
+        token.user = {
+          ...(token.user as object),
+          role: existingUser.role, // ✅ ฝังเข้า user.role ใน token ด้วย
+        };
+      }
       return token;
     },
   },
