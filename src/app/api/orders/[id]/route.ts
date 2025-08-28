@@ -49,50 +49,41 @@ export async function PATCH(
       },
     });
 
-    // ถ้าสถานะเปลี่ยนเป็น "served" ให้เปลี่ยนสถานะโต๊ะเป็น "available"
-    if (body.status === OrderStatus.served) {
+    // ถ้ามี tableId และ status served ให้เปลี่ยนสถานะโต๊ะ
+    if (body.status === OrderStatus.served && existingOrder.tableId) {
       await db.table.update({
         where: { id: existingOrder.tableId },
         data: { status: "available" },
       });
     }
 
-    // ✅ Emit Socket.IO events with proper typing
+    // Emit Socket.IO events
     try {
       if (global.io && body.status) {
+        const tableIdSafe = existingOrder.tableId ?? "unknown";
+        const tableStatusSafe = existingOrder.table?.status ?? "available";
+
         const orderStatusEvent: OrderStatusEvent = {
           orderId: id,
           status: body.status,
           timestamp: new Date(),
-          tableId: existingOrder.tableId,
+          tableId: tableIdSafe,
         };
 
         const tableStatusEvent: TableStatusEvent = {
-          tableId: existingOrder.tableId,
+          tableId: tableIdSafe,
           status:
-            body.status === OrderStatus.served
-              ? "available"
-              : existingOrder.table.status,
+            body.status === OrderStatus.served ? "available" : tableStatusSafe,
           timestamp: new Date(),
         };
 
         global.io.to("dashboard").emit("tableStatusChanged", tableStatusEvent);
-
-        // แจ้ง dashboard ทุกคน
         global.io.to("dashboard").emit("orderStatusChanged", orderStatusEvent);
 
-        // แจ้งโต๊ะที่เกี่ยวข้อง
-        global.io
-          .to(`table-${existingOrder.tableId}`)
-          .emit("orderStatusUpdated", orderStatusEvent);
-
-        // ถ้าเสิร์ฟแล้ว แจ้งการเปลี่ยนสถานะโต๊ะด้วย
-        if (body.status === OrderStatus.served) {
-          global.io.to("dashboard").emit("tableStatusChanged", {
-            tableId: existingOrder.tableId,
-            status: "available",
-            timestamp: new Date(),
-          });
+        if (existingOrder.tableId) {
+          global.io
+            .to(`table-${existingOrder.tableId}`)
+            .emit("orderStatusUpdated", orderStatusEvent);
         }
       }
     } catch (err) {
@@ -133,40 +124,40 @@ export async function DELETE(
     await db.order.delete({ where: { id } });
 
     // เปลี่ยนสถานะโต๊ะกลับเป็น available
-    await db.table.update({
-      where: { id: existingOrder.tableId },
-      data: { status: "available" },
-    });
+    if (existingOrder.tableId) {
+      await db.table.update({
+        where: { id: existingOrder.tableId },
+        data: { status: "available" },
+      });
+    }
 
-    // ✅ Emit Socket.IO events
+    // Emit Socket.IO events
     try {
       if (global.io) {
+        const tableIdSafe = existingOrder.tableId ?? "unknown";
+
         const orderStatusEvent: OrderStatusEvent = {
           orderId: id,
           status: OrderStatus.cancelled,
           timestamp: new Date(),
-          tableId: existingOrder.tableId,
+          tableId: tableIdSafe,
         };
 
         const tableStatusEvent: TableStatusEvent = {
-          tableId: existingOrder.tableId,
+          tableId: tableIdSafe,
           status: "available",
           timestamp: new Date(),
         };
 
-        // แจ้ง dashboard
         global.io.to("dashboard").emit("orderStatusChanged", orderStatusEvent);
 
-        global.io
-          .to(`table-${existingOrder.tableId}`)
-          .emit("orderStatusUpdated", orderStatusEvent);
+        if (existingOrder.tableId) {
+          global.io
+            .to(`table-${existingOrder.tableId}`)
+            .emit("orderStatusUpdated", orderStatusEvent);
+        }
 
-        // แจ้งการเปลี่ยนสถานะโต๊ะ
         global.io.to("dashboard").emit("tableStatusChanged", tableStatusEvent);
-
-        console.log(
-          `🗑️ Order ${id} deleted, emitted to dashboard & table ${existingOrder.tableId}`
-        );
       }
     } catch (err) {
       console.warn("⚠️ Socket.io emit failed:", err);
@@ -185,6 +176,7 @@ export async function DELETE(
   }
 }
 
+// GET - ดึง order ของโต๊ะ
 export async function GET(
   req: Request,
   { params }: { params: Promise<{ id: string }> }

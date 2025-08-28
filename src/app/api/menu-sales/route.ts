@@ -34,7 +34,8 @@ export async function GET(req: Request) {
 
   const dataMap: Record<string, number> = {};
   items.forEach((item) => {
-    const name = item.menuItem.name;
+    const name = item.menuItem?.name;
+    if (!name) return;
     if (!dataMap[name]) dataMap[name] = 0;
     dataMap[name] += item.quantity;
   });
