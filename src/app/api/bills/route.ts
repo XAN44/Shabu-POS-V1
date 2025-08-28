@@ -38,15 +38,12 @@ export async function GET(request: Request) {
         },
       },
       orderBy: {
-        paymentTime: "desc",
+        paymentTime: "asc",
       },
       take: limit,
       skip: offset,
     });
 
-    // นับจำนวนทั้งหมด
-
-    // ส่งกลับแค่ array ของ bills สำหรับความเรียบง่าย
     return NextResponse.json(bills);
   } catch (error) {
     console.error("Failed to fetch bills:", error);

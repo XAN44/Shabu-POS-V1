@@ -5,80 +5,131 @@ import { TableStatus } from "@prisma/client";
 import db from "@/src/app/lib/prismaClient";
 import { BillCreatedEvent, TableStatusEvent } from "@/src/app/types/socket";
 
+interface CheckoutRequestBody {
+  paymentMethod: "cash" | "qrcode";
+}
+
 export async function PATCH(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    // Await params before accessing properties (Next.js 15+ requirement)
     const resolvedParams = await params;
     const tableId = resolvedParams.id;
 
-    // Check if there are any existing bills for orders from this table
-    const existingBills = await db.bill.findMany({
-      where: {
-        tableId: tableId,
-      },
+    let paymentMethod: "cash" | "qrcode" = "cash";
+    try {
+      const body: CheckoutRequestBody = await req.json();
+      paymentMethod = body.paymentMethod || "cash";
+    } catch (error) {
+      console.log("No payment method specified, defaulting to cash");
+    }
+
+    if (!["cash", "qrcode"].includes(paymentMethod)) {
+      return NextResponse.json(
+        {
+          error: "Invalid payment method",
+          message: "Payment method must be either 'cash' or 'qrcode'",
+        },
+        { status: 400 }
+      );
+    }
+
+    // ดึงข้อมูลโต๊ะเพื่อเช็ค lastClearedAt
+    const table = await db.table.findUnique({
+      where: { id: tableId },
       select: {
-        orderIds: true,
+        id: true,
+        number: true,
+        lastClearedAt: true,
       },
     });
 
-    // Get all order IDs that have already been billed
-    const billedOrderIds = new Set(
-      existingBills.flatMap((bill) => bill.orderIds)
-    );
+    if (!table) {
+      return NextResponse.json({ error: "Table not found" }, { status: 404 });
+    }
 
-    // Find all orders for this table that haven't been billed yet
-    const ordersToBill = await db.order.findMany({
+    // ดึงออเดอร์ที่สร้างหลังจาก lastClearedAt เท่านั้น (ลูกค้าคนปัจจุบัน)
+    const currentCustomerOrders = await db.order.findMany({
       where: {
         tableId: tableId,
         status: {
-          not: "cancelled", // Only exclude cancelled orders
+          not: "cancelled",
         },
-        id: {
-          notIn: Array.from(billedOrderIds), // Exclude already billed orders
+        // เงื่อนไขสำคัญ: ดึงเฉพาะออเดอร์ที่สร้างหลังจากเคลียร์โต๊ะครั้งล่าสุด
+        orderTime: {
+          gt: table.lastClearedAt,
         },
       },
       include: {
         items: true,
       },
+      orderBy: {
+        orderTime: "asc",
+      },
     });
 
-    if (ordersToBill.length === 0) {
+    if (currentCustomerOrders.length === 0) {
       return NextResponse.json(
         {
-          error: "ไม่มีออเดอร์ที่ต้องเช็คบิล",
-          message:
-            "All orders for this table have already been billed or there are no orders",
+          error: "ไม่มีออเดอร์ใหม่ที่ต้องเช็คบิล",
+          message: "No new orders found for this table since last clear",
         },
         { status: 404 }
       );
     }
 
-    // Calculate total amount from unbilled orders only
-    const totalAmount = ordersToBill.reduce(
+    // ตรวจสอบว่ามี Bill ที่ยังไม่เสร็จสิ้นสำหรับลูกค้าคนปัจจุบันหรือไม่
+    const existingActiveBill = await db.bill.findFirst({
+      where: {
+        tableId: tableId,
+        // ตรวจสอบเฉพาะบิลที่สร้างหลังจาก lastClearedAt
+        createdAt: {
+          gt: table.lastClearedAt,
+        },
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
+    });
+
+    // คำนวณยอดรวมของออเดอร์ลูกค้าคนปัจจุบันเท่านั้น
+    const totalAmount = currentCustomerOrders.reduce(
       (sum, order) => sum + order.totalAmount,
       0
     );
 
-    // Start transaction to ensure data consistency
     const result = await db.$transaction(async (tx) => {
-      // Create the bill
-      const newBill = await tx.bill.create({
-        data: {
-          tableId: tableId,
-          totalAmount: totalAmount,
-          orderIds: ordersToBill.map((order) => order.id),
-          paymentMethod: "cash", // Default payment method
-        },
-      });
+      let finalBill;
 
-      // Update all orders to 'served' status
+      if (existingActiveBill) {
+        // อัปเดต Bill ที่มีอยู่แล้วสำหรับลูกค้าคนปัจจุบัน
+        finalBill = await tx.bill.update({
+          where: { id: existingActiveBill.id },
+          data: {
+            totalAmount: totalAmount,
+            orderIds: currentCustomerOrders.map((order) => order.id),
+            paymentMethod: paymentMethod,
+            paymentTime: new Date(),
+          },
+        });
+      } else {
+        // สร้าง Bill ใหม่สำหรับลูกค้าคนปัจจุบัน
+        finalBill = await tx.bill.create({
+          data: {
+            tableId: tableId,
+            totalAmount: totalAmount,
+            orderIds: currentCustomerOrders.map((order) => order.id),
+            paymentMethod: paymentMethod,
+          },
+        });
+      }
+
+      // อัปเดตสถานะออเดอร์ของลูกค้าคนปัจจุบันเป็น 'served'
       await tx.order.updateMany({
         where: {
           id: {
-            in: ordersToBill.map((order) => order.id),
+            in: currentCustomerOrders.map((order) => order.id),
           },
         },
         data: {
@@ -86,79 +137,50 @@ export async function PATCH(
         },
       });
 
-      // Check if there are any remaining unbilled orders for this table
-      const remainingOrders = await tx.order.findMany({
-        where: {
-          tableId: tableId,
-          status: {
-            not: "cancelled",
-          },
-          id: {
-            notIn: [
-              ...Array.from(billedOrderIds),
-              ...ordersToBill.map((o) => o.id),
-            ],
-          },
+      // อัปเดตสถานะโต๊ะเป็น available และอัปเดต lastClearedAt
+      // lastClearedAt จะถูกอัปเดตเป็นเวลาปัจจุบันเพื่อเป็นจุดอ้างอิงสำหรับลูกค้าคนถัดไป
+      const updatedTable = await tx.table.update({
+        where: { id: tableId },
+        data: {
+          status: TableStatus.available,
+          lastClearedAt: new Date(), // สำคัญ: อัปเดตเวลาเคลียร์โต๊ะ
+        },
+        select: {
+          id: true,
+          number: true,
+          status: true,
         },
       });
 
-      let updatedTable = null;
-      if (remainingOrders.length === 0) {
-        updatedTable = await tx.table.update({
-          where: { id: tableId },
-          data: { status: TableStatus.available, lastClearedAt: new Date() },
-          select: {
-            id: true,
-            number: true,
-            status: true,
-          },
-        });
-        console.log("Table status updated to available");
-      } else {
-        // Get current table info without updating status
-        updatedTable = await tx.table.findUnique({
-          where: { id: tableId },
-          select: {
-            id: true,
-            number: true,
-            status: true,
-          },
-        });
-      }
-
-      return { bill: newBill, table: updatedTable };
+      return { bill: finalBill, table: updatedTable };
     });
 
+    // Socket.IO events
     if (typeof global !== "undefined" && global.io) {
       try {
-        if (result.table?.status === TableStatus.available) {
-          const tableStatusEvent: TableStatusEvent = {
-            tableId: tableId,
-            status: "available",
-            timestamp: new Date(),
-          };
+        const tableStatusEvent: TableStatusEvent = {
+          tableId: tableId,
+          status: "available",
+          timestamp: new Date(),
+        };
 
-          global.io
-            .to("dashboard")
-            .emit("tableStatusChanged", tableStatusEvent);
-        }
+        global.io.to("dashboard").emit("tableStatusChanged", tableStatusEvent);
 
         global.io.to("dashboard").emit("tableCheckedOut", {
           tableId,
           totalAmount: result.bill.totalAmount,
-          orders: ordersToBill, // ให้ครบตาม type
+          orders: currentCustomerOrders,
           number: String(result.table?.number ?? ""),
           tableName: `โต๊ะ ${result.table?.number ?? ""}`,
           timestamp: new Date().toISOString(),
         });
 
-        // Bill created event
-        const billCreatedEvent: BillCreatedEvent = {
+        const billEvent: BillCreatedEvent = {
           billId: result.bill.id,
           totalAmount: result.bill.totalAmount,
         };
 
-        global.io.to(`table-${tableId}`).emit("billCreated", billCreatedEvent);
+        global.io.to(`table-${tableId}`).emit("billCreated", billEvent);
       } catch (socketError) {
         console.warn("Socket.IO emission failed:", socketError);
       }
@@ -172,21 +194,35 @@ export async function PATCH(
         totalAmount: result.bill.totalAmount,
         tableId: result.bill.tableId,
         paymentTime: result.bill.paymentTime,
+        paymentMethod: result.bill.paymentMethod,
+        orderIds: result.bill.orderIds,
       },
       table: result.table,
-      ordersBilled: ordersToBill.length,
+      ordersBilled: currentCustomerOrders.length,
+      paymentMethod: paymentMethod,
+      // เพิ่มข้อมูลเพื่อ debug
+      debug: {
+        tableClearedAt: table.lastClearedAt,
+        ordersAfterClear: currentCustomerOrders.length,
+        orderTimeRange:
+          currentCustomerOrders.length > 0
+            ? {
+                from: currentCustomerOrders[0].orderTime,
+                to: currentCustomerOrders[currentCustomerOrders.length - 1]
+                  .orderTime,
+              }
+            : null,
+      },
     });
   } catch (error) {
     console.error("Checkout failed:", error);
 
-    // Enhanced error logging
     if (error instanceof Error) {
       console.error("Error name:", error.name);
       console.error("Error message:", error.message);
       console.error("Error stack:", error.stack);
     }
 
-    // Check for specific Prisma errors
     if (error === "P2025") {
       return NextResponse.json({ error: "Table not found" }, { status: 404 });
     }
@@ -207,6 +243,8 @@ export async function POST(
 ) {
   const { id } = await params;
   try {
+    // เมื่อเคลียร์โต๊ะ จะอัปเดต lastClearedAt เป็นเวลาปัจจุบัน
+    // ทำให้ออเดอร์ใหม่ที่สร้างหลังจากนี้จะไม่ถูกรวมกับออเดอร์เก่า
     await db.table.update({
       where: { id },
       data: { lastClearedAt: new Date() },

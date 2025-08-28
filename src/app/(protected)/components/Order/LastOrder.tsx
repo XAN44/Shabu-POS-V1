@@ -61,21 +61,6 @@ function LastOrder({
     ...ordersByStatus.preparing,
     ...ordersByStatus.ready,
   ];
-  const completedOrders = [
-    ...ordersByStatus.served,
-    ...ordersByStatus.cancelled,
-  ];
-
-  // คำนวณยอดรวมของออเดอร์ที่เสิร์ฟแล้ว
-  const totalRevenue = ordersByStatus.served.reduce((sum, order) => {
-    return sum + (order.totalAmount || 0);
-  }, 0);
-
-  // คำนวณเปอร์เซ็นต์ความสำเร็จ
-  const completionRate =
-    orders.length > 0
-      ? (ordersByStatus.served.length / orders.length) * 100
-      : 0;
 
   return (
     <div className="">

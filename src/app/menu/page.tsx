@@ -140,6 +140,12 @@ function MenuContent() {
           duration: 5000,
           className: "border-green-200 bg-green-50",
         });
+
+        // 🔄 ดึงข้อมูลใหม่ (refresh orders)
+        fetchOrders();
+
+        // หรือถ้าต้องการเคลียร์ตะกร้า/รีเซ็ต state
+        clearDraftCart();
       }
     };
 

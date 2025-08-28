@@ -119,11 +119,6 @@ export const BillOverview: React.FC<BillOverviewProps> = ({
     setIsDetailModalOpen(true);
   };
 
-  const handlePrintBill = (bill: Bill) => {
-    // TODO: ใช้งานเครื่องพิมพ์หรือสร้าง PDF
-    toast.success(`พิมพ์บิล ${bill.id.slice(-8)}`);
-  };
-
   if (loading) {
     return (
       <div className="relative overflow-hidden">
@@ -448,7 +443,6 @@ export const BillOverview: React.FC<BillOverviewProps> = ({
                                 <Sparkles className="w-5 h-5 text-yellow-400 animate-bounce" />
                               </div>
                             </div>
-
                             <div className="flex gap-2">
                               <Button
                                 size="sm"
@@ -459,7 +453,12 @@ export const BillOverview: React.FC<BillOverviewProps> = ({
                               </Button>
                               <Button
                                 size="sm"
-                                onClick={() => handlePrintBill(bill)}
+                                onClick={() =>
+                                  window.open(
+                                    `/receipt?billId=${bill.id}`,
+                                    "_blank"
+                                  )
+                                }
                                 className="bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-600 hover:to-green-700 text-white rounded-xl shadow-lg transition-all duration-300 hover:shadow-xl hover:scale-105"
                               >
                                 <Download className="w-4 h-4" />

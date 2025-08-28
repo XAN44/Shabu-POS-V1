@@ -57,6 +57,7 @@ export interface Order {
   orderTime: Date;
   notes?: string;
   customerName?: string;
+  billId?: string | null; // ถ้าเคยถูกบิลแล้ว
 }
 
 // ========== Dashboard Metrics ==========

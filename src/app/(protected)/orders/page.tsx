@@ -35,7 +35,6 @@ import {
 import { TableManagement } from "../components/tables/TableManagement";
 import { MenuManagement } from "../components/menu/MenuManagement";
 import { MenuItem, Order, Table } from "@/src/app/types/Order";
-import { OrdersOverview } from "../components/Order/OrderOverView";
 import { CheckoutButton } from "../components/tables/CheckoutButton";
 import { BillOverview } from "../components/bills/BillOverview";
 import { toast } from "sonner";
@@ -50,6 +49,7 @@ import {
   StaffCalledEvent,
 } from "@/src/app/types/socket";
 import LastOrder from "../components/Order/LastOrder";
+import { OrdersOverview } from "../components/Order/OrderOverView";
 
 // Constants
 const API_ENDPOINTS = {
@@ -177,14 +177,51 @@ const OrdersDashboard: React.FC = () => {
 
           setTables(tablesData);
           setMenuItems(menuData);
-          setOrders(ordersData);
-          setLastRefresh(new Date());
-          setHasDataLoaded(true);
 
-          const billedIds = new Set<string>(
+          // สร้าง unique session key สำหรับแต่ละ bill session
+          // ใช้ combination ของ billId + paymentTime เพื่อแยก session
+          const billedIdsMap = new Map<string, string>();
+          const billSessionMap = new Map<
+            string,
+            { billId: string; paymentTime: string }
+          >();
+
+          billsData.forEach(
+            (bill: {
+              id: string;
+              orderIds: string[];
+              paymentTime: string;
+              tableId: string;
+            }) => {
+              // สร้าง unique session key = billId + paymentTime + tableId
+              const sessionKey = `${bill.id}_${bill.paymentTime}_${bill.tableId}`;
+
+              bill.orderIds.forEach((orderId) => {
+                billedIdsMap.set(orderId, sessionKey);
+                billSessionMap.set(sessionKey, {
+                  billId: bill.id,
+                  paymentTime: bill.paymentTime,
+                });
+              });
+            }
+          );
+
+          // map ordersData ให้มี billSessionId แทน billId
+          const ordersWithBillSession = ordersData.map((order: Order) => ({
+            ...order,
+            billId: billedIdsMap.get(order.id) ?? null,
+          }));
+
+          setOrders(ordersWithBillSession);
+
+          // เก็บ Set ของ orderId ที่ถูกบิลแล้ว
+          const billedIdsSet = new Set<string>(
             billsData.flatMap((bill: { orderIds: string[] }) => bill.orderIds)
           );
-          setBilledOrderIds(billedIds);
+          setBilledOrderIds(billedIdsSet);
+
+          setLastRefresh(new Date());
+          setHasDataLoaded(true);
 
           if (!isBackground && hasDataLoaded) {
             toast.success("รีเฟรชข้อมูลสำเร็จ");
@@ -847,6 +884,21 @@ const OrdersDashboard: React.FC = () => {
 
     return Math.round(totalMinutes / activeOrders.length);
   }, [todayOrders]);
+
+  const ordersGroupedByBill = useMemo(() => {
+    const grouped: Record<string, Order[]> = {};
+
+    orders.forEach((order) => {
+      // ใช้ billId เป็น key ถ้ามี
+      const key = order.billId ?? `table-${order.tableId}-temp`;
+
+      if (!grouped[key]) grouped[key] = [];
+      grouped[key].push(order);
+    });
+
+    // แปลงเป็น array เพื่อ map ใน UI
+    return Object.values(grouped);
+  }, [orders]);
 
   if (initialLoading) {
     return (

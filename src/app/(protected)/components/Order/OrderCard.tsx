@@ -230,24 +230,6 @@ export const OrderCard: React.FC<OrderCardProps> = ({
             </Button>
           </div>
         );
-
-      case "served":
-        return (
-          <div className="flex justify-center">
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => window.print()}
-              className="border-blue-200 text-blue-600 hover:bg-blue-50 hover:border-blue-300 shadow-sm hover:shadow-md transition-all duration-200 h-9 sm:h-10 rounded-lg sm:rounded-xl font-semibold px-4 sm:px-6 text-sm"
-            >
-              <Receipt className="w-4 h-4 mr-2" />
-              พิมพ์ใบเสร็จ
-            </Button>
-          </div>
-        );
-
-      default:
-        return null;
     }
   };
 

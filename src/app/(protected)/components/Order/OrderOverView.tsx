@@ -1,6 +1,6 @@
 "use client";
 // components/orders/OrdersOverview.tsx
-import React from "react";
+import React, { useMemo } from "react";
 import { Order } from "@/src/app/types/Order";
 import { OrderCard } from "./OrderCard";
 import {
@@ -42,7 +42,30 @@ export const OrdersOverview: React.FC<OrdersOverviewProps> = ({
     const diffMinutes = (now.getTime() - orderTime.getTime()) / (1000 * 60);
 
     return diffMinutes > 30;
-  };
+  }; // รวมออเดอร์ตาม billId หรือ tableId
+  const ordersGroupedByBill = useMemo(() => {
+    const grouped: Record<string, Order[]> = {};
+
+    orders.forEach((order: Order) => {
+      const key = order.billId ?? `table-${order.tableId}-temp`;
+      if (!grouped[key]) grouped[key] = [];
+      grouped[key].push(order);
+    });
+
+    return Object.values(grouped);
+  }, [orders]);
+
+  // รวม items และ totalAmount
+  const mergedOrders = ordersGroupedByBill.map((group: Order[]) => {
+    return {
+      ...group[0], // เอาข้อมูลโต๊ะ/บิลหลัก
+      items: group.flatMap((o: Order) => o.items),
+      totalAmount: group.reduce(
+        (sum: number, o: Order) => sum + o.totalAmount,
+        0
+      ),
+    } as Order; // type cast เป็น Order
+  });
 
   // เรียงออเดอร์ตามลำดับความสำคัญ
   const sortedOrders = [...orders].sort((a, b) => {
@@ -108,7 +131,7 @@ export const OrdersOverview: React.FC<OrdersOverviewProps> = ({
               {title}
             </h3>
             <p className="text-base sm:text-lg text-gray-500 font-medium">
-              ยังไม่มีออเดอร์ เริ่ม�้นการขายกันเลย
+              ยังไม่มีออเดอร์{" "}
             </p>
           </div>
           <div className="w-16 sm:w-24 h-1 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full mx-auto"></div>
@@ -354,13 +377,12 @@ export const OrdersOverview: React.FC<OrdersOverviewProps> = ({
           </div>
 
           <div className="grid gap-4 sm:gap-6 grid-cols-1 lg:grid-cols-2 xl:grid-cols-3">
-            {completedOrders.slice(0, 12).map((order) => (
+            {mergedOrders.slice(0, 12).map((order, idx) => (
               <OrderCard
-                key={order.id}
+                key={order.id ?? idx} // ถ้าไม่มี id ให้ใช้ idx
                 order={order}
                 onStatusChange={onOrderStatusChange}
                 showTimeAgo={showTimeAgo}
-                isUrgent={false}
               />
             ))}
           </div>
