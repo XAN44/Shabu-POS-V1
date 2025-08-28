@@ -855,15 +855,20 @@ const OrdersDashboard: React.FC = () => {
     }, 300);
   }, [fetchData]);
 
-  const tablesWithPendingOrders = useMemo(() => {
+  const tablesReadyForCheckout = useMemo(() => {
     return tables.filter((table) => {
-      const tableOrders = orders.filter(
+      const unbilledOrders = orders.filter(
         (order) =>
           order.tableId === table.id &&
           order.status !== "cancelled" &&
           !billedOrderIds.has(order.id)
       );
-      return tableOrders.length > 0;
+
+      // โต๊ะพร้อมเช็คบิล = ออเดอร์ทั้งหมดในโต๊ะนี้เป็น served
+      return (
+        unbilledOrders.length > 0 &&
+        unbilledOrders.every((order) => order.status === "served")
+      );
     });
   }, [tables, orders, billedOrderIds]);
 
@@ -884,21 +889,6 @@ const OrdersDashboard: React.FC = () => {
 
     return Math.round(totalMinutes / activeOrders.length);
   }, [todayOrders]);
-
-  const ordersGroupedByBill = useMemo(() => {
-    const grouped: Record<string, Order[]> = {};
-
-    orders.forEach((order) => {
-      // ใช้ billId เป็น key ถ้ามี
-      const key = order.billId ?? `table-${order.tableId}-temp`;
-
-      if (!grouped[key]) grouped[key] = [];
-      grouped[key].push(order);
-    });
-
-    // แปลงเป็น array เพื่อ map ใน UI
-    return Object.values(grouped);
-  }, [orders]);
 
   if (initialLoading) {
     return (
@@ -1296,8 +1286,7 @@ const OrdersDashboard: React.FC = () => {
           </div>
         )}
 
-        {/* Enhanced Quick Checkout Section */}
-        {tablesWithPendingOrders.length > 0 && (
+        {tablesReadyForCheckout.length > 0 && (
           <div className="bg-gradient-to-br from-green-50 via-green-50 to-emerald-50 border-2 border-green-200 rounded-3xl shadow-xl overflow-hidden">
             <div className="bg-gradient-to-r from-green-500 to-green-600 px-4 sm:px-6 py-4">
               <div className="flex items-center justify-between">
@@ -1308,7 +1297,7 @@ const OrdersDashboard: React.FC = () => {
                     </div>
                     <div className="absolute -top-1 -right-1 w-4 h-4 bg-blue-400 rounded-full flex items-center justify-center">
                       <span className="text-xs font-bold text-green-800">
-                        {tablesWithPendingOrders.length}
+                        {tablesReadyForCheckout.length}
                       </span>
                     </div>
                   </div>
@@ -1317,8 +1306,7 @@ const OrdersDashboard: React.FC = () => {
                       โต๊ะที่พร้อมเช็คบิล
                     </h3>
                     <p className="text-sm text-green-100 opacity-90">
-                      {tablesWithPendingOrders.length}{" "}
-                      โต๊ะพร้อมดำเนินการชำระเงิน
+                      {tablesReadyForCheckout.length} โต๊ะพร้อมดำเนินการชำระเงิน
                     </p>
                   </div>
                 </div>
@@ -1334,7 +1322,7 @@ const OrdersDashboard: React.FC = () => {
 
             <div className="p-4 sm:p-6">
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4 sm:gap-6">
-                {tablesWithPendingOrders.map((table) => {
+                {tablesReadyForCheckout.map((table) => {
                   const unbilledOrders = orders.filter(
                     (order) =>
                       order.tableId === table.id &&
