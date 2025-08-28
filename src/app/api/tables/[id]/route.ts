@@ -7,23 +7,46 @@ export async function PATCH(
 ) {
   try {
     const { id } = await params;
-    const { number, seats, status, qrCode } = await req.json();
 
-    const updatedTable = await db.table.update({
+    if (!id) {
+      return NextResponse.json(
+        { error: "Order ID is required" },
+        { status: 400 }
+      );
+    }
+
+    const { status: newStatus } = await req.json();
+
+    if (!newStatus) {
+      return NextResponse.json(
+        { error: "Status is required" },
+        { status: 400 }
+      );
+    }
+
+    // อัปเดต order
+    const updatedOrder = await db.order.update({
       where: { id },
-      data: {
-        number,
-        seats,
-        status,
-        qrCode,
-      },
+      data: { status: newStatus },
+      include: { table: true }, // ดึง table มาด้วย
     });
 
-    return NextResponse.json(updatedTable);
+    // ถ้า order ยังมี table เช็คและอัปเดต status ของ table ด้วย (optional)
+    if (updatedOrder.tableId && updatedOrder.table) {
+      const tableStatus: "available" | "occupied" | "reserved" | "cleaning" =
+        newStatus === "served" ? "available" : "occupied";
+
+      await db.table.update({
+        where: { id: updatedOrder.tableId },
+        data: { status: tableStatus },
+      });
+    }
+
+    return NextResponse.json(updatedOrder);
   } catch (error) {
-    console.log(error);
+    console.error("Failed to update order status:", error);
     return NextResponse.json(
-      { error: "Failed to update table" },
+      { error: "Failed to update order status" },
       { status: 500 }
     );
   }

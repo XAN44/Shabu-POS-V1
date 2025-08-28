@@ -412,7 +412,9 @@ export const BillOverview: React.FC<BillOverviewProps> = ({
                                   <Target className="w-4 h-4 text-purple-600" />
                                 </div>
                                 <span className="font-medium">
-                                  โต๊ะ {bill.table.number}
+                                  โต๊ะ{" "}
+                                  {bill.table?.number ??
+                                    "ไม่แสดงโต๊ะ อาจจะเป็นเพราะโต๊ะถูกลบ"}
                                 </span>
                               </div>
 

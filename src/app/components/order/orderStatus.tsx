@@ -155,7 +155,7 @@ const OrderCard: React.FC<OrderCardProps> = ({
             >
               <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
                 <p className="flex-1 font-medium text-gray-700 text-sm min-w-0">
-                  {item.menuItem.name}
+                  {item.menuItem?.name || "เมนูลบแล้ว"}
                 </p>
                 <div className="flex items-center justify-between sm:justify-end gap-3 flex-shrink-0">
                   <span
@@ -164,7 +164,11 @@ const OrderCard: React.FC<OrderCardProps> = ({
                     ×{item.quantity}
                   </span>
                   <span className="font-semibold text-gray-800 text-sm min-w-[60px] text-right">
-                    ฿{(item.menuItem.price * item.quantity).toLocaleString()}
+                    {item.menuItem
+                      ? `฿${(
+                          item.menuItem.price * item.quantity
+                        ).toLocaleString()}`
+                      : "เมนูลบแล้ว"}{" "}
                   </span>
                 </div>
               </div>

@@ -60,6 +60,8 @@ export const MenuManagement: React.FC<MenuManagementProps> = ({
   const [editingItem, setEditingItem] = useState<MenuItem | null>(null);
   const [deletingItemId, setDeletingItemId] = useState<string | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
+  const [isLoading, setIsLoading] = useState(false);
+
   const [file, setFile] = useState<File | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
   const [newCategoryName, setNewCategoryName] = useState("");
@@ -91,7 +93,6 @@ export const MenuManagement: React.FC<MenuManagementProps> = ({
       toast.error("ไม่สามารถโหลดหมวดหมู่ได้");
     }
   };
-
   const handleAddCategory = async () => {
     if (!newCategoryName.trim()) {
       toast.error("กรุณาระบุชื่อหมวดหมู่");
@@ -109,6 +110,8 @@ export const MenuManagement: React.FC<MenuManagementProps> = ({
     }
 
     setIsAddingCategory(true);
+    setIsLoading(true);
+
     try {
       const response = await fetch("/api/categories", {
         method: "POST",
@@ -130,6 +133,7 @@ export const MenuManagement: React.FC<MenuManagementProps> = ({
       toast.error("ไม่สามารถเพิ่มหมวดหมู่ได้");
     } finally {
       setIsAddingCategory(false);
+      setIsLoading(false);
     }
   };
 
@@ -164,7 +168,7 @@ export const MenuManagement: React.FC<MenuManagementProps> = ({
     let imageUrl = formData.image;
     let imageKey = formData.imageKey;
 
-    // ตรวจสอบว่ามีไฟล์ที่ผู้ใช้เลือกมาหรือไม่
+    //
     if (file) {
       try {
         const uploadFormData = new FormData();
@@ -191,7 +195,6 @@ export const MenuManagement: React.FC<MenuManagementProps> = ({
       }
     }
 
-    // ส่งข้อมูลทั้งหมด รวมถึง imageUrl และ imageKey ไปบันทึกในฐานข้อมูล
     onAddMenuItem({
       name: formData.name,
       price: parseFloat(formData.price),
@@ -223,21 +226,57 @@ export const MenuManagement: React.FC<MenuManagementProps> = ({
   };
 
   const handleSaveEdit = async () => {
-    if (editingItem) {
-      onEditMenuItem(editingItem.id, {
+    if (!editingItem) return;
+
+    setIsLoading(true); // <-- เริ่มโหลด
+
+    let imageUrl = formData.image;
+    let imageKey = formData.imageKey;
+
+    if (file) {
+      try {
+        const uploadFormData = new FormData();
+        uploadFormData.append("file", file);
+
+        const response = await fetch("/api/upload", {
+          method: "POST",
+          body: uploadFormData,
+        });
+
+        if (!response.ok) throw new Error("Failed to upload image via API");
+
+        const uploadResult = await response.json();
+        imageUrl = uploadResult.data.secure_url;
+        imageKey = uploadResult.data.public_id;
+      } catch (error) {
+        console.error("Failed to upload image:", error);
+        toast.error("ไม่สามารถอัปโหลดรูปภาพได้");
+        setIsLoading(false);
+        return;
+      }
+    }
+
+    try {
+      await onEditMenuItem(editingItem.id, {
         name: formData.name,
         price: parseFloat(formData.price),
         category: formData.category,
         description: formData.description || undefined,
         available: formData.available,
-        image: formData.image,
-        imageKey: formData.imageKey,
+        image: imageUrl,
+        imageKey: imageKey,
       });
 
       resetForm();
       setFile(null);
       setEditingItem(null);
       setShowEditDialog(false);
+      toast.success("บันทึกเมนูสำเร็จ");
+    } catch (error) {
+      console.error("Failed to save edit:", error);
+      toast.error("ไม่สามารถบันทึกได้");
+    } finally {
+      setIsLoading(false); // <-- จบโหลด
     }
   };
 
@@ -685,7 +724,9 @@ export const MenuManagement: React.FC<MenuManagementProps> = ({
               </Button>
               <Button
                 onClick={handleAddCategory}
-                disabled={!newCategoryName.trim() || isAddingCategory}
+                disabled={
+                  !newCategoryName.trim() || isAddingCategory || isLoading
+                }
                 className="bg-gradient-to-r from-purple-600 to-violet-700 hover:from-purple-700 hover:to-violet-800 text-white rounded-2xl shadow-lg transition-all duration-300 hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isAddingCategory ? (
@@ -872,7 +913,7 @@ export const MenuManagement: React.FC<MenuManagementProps> = ({
               </Button>
               <Button
                 onClick={handleAdd}
-                disabled={!formData.category}
+                disabled={!formData.category || isLoading}
                 className="bg-gradient-to-r from-blue-600 to-indigo-700 hover:from-blue-700 hover:to-indigo-800 text-white rounded-2xl shadow-lg transition-all duration-300 hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 เพิ่มเมนู
@@ -904,6 +945,51 @@ export const MenuManagement: React.FC<MenuManagementProps> = ({
             </DialogHeader>
 
             <div className="grid gap-6 py-6">
+              {/* Preview รูปถ้ามี */}
+              {file ? (
+                <div className="relative">
+                  <Image
+                    width={400}
+                    height={300}
+                    src={URL.createObjectURL(file)}
+                    alt="Preview"
+                    className="w-full h-72 object-cover rounded-2xl shadow-lg"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/20 via-transparent to-transparent rounded-2xl"></div>
+                </div>
+              ) : formData.image ? (
+                <div className="relative">
+                  <Image
+                    width={400}
+                    height={300}
+                    src={formData.image}
+                    alt={formData.name}
+                    className="w-full h-72 object-cover rounded-2xl shadow-lg"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/20 via-transparent to-transparent rounded-2xl"></div>
+                </div>
+              ) : null}
+
+              {/* Input สำหรับเลือกรูปใหม่ */}
+              <div className="space-y-2">
+                <Label
+                  htmlFor="edit-file"
+                  className="text-sm font-semibold text-gray-700"
+                >
+                  รูปเมนู (ไม่จำเป็น)
+                </Label>
+                <Input
+                  id="edit-file"
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) =>
+                    handleFileChange(e.target.files?.[0] || null)
+                  }
+                  className="bg-white/80 backdrop-blur-sm border-gray-200 rounded-2xl focus:ring-2 focus:ring-emerald-500/20"
+                />
+              </div>
+
+              {/* ฟอร์มแก้ไขชื่อ ราคา หมวดหมู่ คำอธิบาย */}
               <div className="grid gap-4">
                 <div className="space-y-2">
                   <Label
@@ -1001,10 +1087,11 @@ export const MenuManagement: React.FC<MenuManagementProps> = ({
                 ยกเลิก
               </Button>
               <Button
+                disabled={isLoading}
                 onClick={handleSaveEdit}
                 className="bg-gradient-to-r from-emerald-600 to-green-700 hover:from-emerald-700 hover:to-green-800 text-white rounded-2xl shadow-lg transition-all duration-300 hover:shadow-xl"
               >
-                บันทึกการเปลี่ยนแปลง
+                {isLoading ? "กำลังบันทึก" : "บันทึกเ"}
               </Button>
             </DialogFooter>
           </div>

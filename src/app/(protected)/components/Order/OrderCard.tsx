@@ -289,13 +289,13 @@ export const OrderCard: React.FC<OrderCardProps> = ({
                 </div>
                 <div className="absolute -top-0.5 -right-0.5 sm:-top-1 sm:-right-1 w-4 h-4 sm:w-5 sm:h-5 bg-gradient-to-br from-amber-400 to-orange-500 rounded-full flex items-center justify-center shadow-md">
                   <span className="text-xs font-bold text-white">
-                    {order.table.number}
+                    โต๊ะ {order.table?.number || "ถูกลบออก"}
                   </span>
                 </div>
               </div>
               <div>
                 <CardTitle className="text-lg sm:text-xl font-bold bg-gradient-to-r from-gray-800 to-gray-600 bg-clip-text text-transparent">
-                  โต๊ะ {order.table.number}
+                  โต๊ะ {order.table?.number || "ถูกลบออก"}
                 </CardTitle>
                 <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2 mt-1">
                   <div className="flex items-center gap-1 text-xs sm:text-sm text-gray-600">
@@ -388,7 +388,7 @@ export const OrderCard: React.FC<OrderCardProps> = ({
                         </span>
                       </div>
                       <span className="text-sm sm:text-base font-semibold text-gray-800 truncate">
-                        {item.menuItem.name}
+                        {item.menuItem?.name || "เมนูถูกลบ"}
                       </span>
                     </div>
                     {item.notes && (
