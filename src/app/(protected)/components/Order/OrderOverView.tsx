@@ -105,6 +105,10 @@ export const OrdersOverview: React.FC<OrdersOverviewProps> = ({
     ...ordersByStatus.cancelled,
   ];
 
+  const completedOrdersSorted = [...completedOrders].sort(
+    (a, b) => new Date(b.orderTime).getTime() - new Date(a.orderTime).getTime()
+  );
+
   // คำนวณยอดรวมของออเดอร์ที่เสิร์ฟแล้ว
   const totalRevenue = ordersByStatus.served.reduce((sum, order) => {
     return sum + (order.totalAmount || 0);
@@ -377,7 +381,7 @@ export const OrdersOverview: React.FC<OrdersOverviewProps> = ({
           </div>
 
           <div className="grid gap-4 sm:gap-6 grid-cols-1 lg:grid-cols-2 xl:grid-cols-3">
-            {completedOrders.slice(0, 12).map((order, idx) => (
+            {completedOrdersSorted.slice(0, 12).map((order, idx) => (
               <OrderCard
                 key={order.id ?? idx}
                 order={order}
