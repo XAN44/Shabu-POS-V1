@@ -93,13 +93,14 @@ export const MenuManagement: React.FC<MenuManagementProps> = ({
       toast.error("ไม่สามารถโหลดหมวดหมู่ได้");
     }
   };
+
+  // สำหรับเพิ่มหมวดหมู่
   const handleAddCategory = async () => {
     if (!newCategoryName.trim()) {
       toast.error("กรุณาระบุชื่อหมวดหมู่");
       return;
     }
 
-    // Check if category already exists
     if (
       categories.some(
         (cat) => cat.name.toLowerCase() === newCategoryName.trim().toLowerCase()
@@ -109,9 +110,7 @@ export const MenuManagement: React.FC<MenuManagementProps> = ({
       return;
     }
 
-    setIsAddingCategory(true);
-    setIsLoading(true);
-
+    setIsLoading(true); // <-- เริ่มโหลด
     try {
       const response = await fetch("/api/categories", {
         method: "POST",
@@ -119,24 +118,20 @@ export const MenuManagement: React.FC<MenuManagementProps> = ({
         body: JSON.stringify({ name: newCategoryName.trim() }),
       });
 
-      if (response.ok) {
-        const newCategory = await response.json();
-        setCategories((prev) => [...prev, newCategory]);
-        setNewCategoryName("");
-        setShowAddCategoryDialog(false);
-        toast.success(`เพิ่มหมวดหมู่ "${newCategory.name}" สำเร็จ`);
-      } else {
-        throw new Error("Failed to add category");
-      }
+      if (!response.ok) throw new Error("Failed to add category");
+
+      const newCategory = await response.json();
+      setCategories((prev) => [...prev, newCategory]);
+      setNewCategoryName("");
+      setShowAddCategoryDialog(false);
+      toast.success(`เพิ่มหมวดหมู่ "${newCategory.name}" สำเร็จ`);
     } catch (error) {
       console.error("Error adding category:", error);
       toast.error("ไม่สามารถเพิ่มหมวดหมู่ได้");
     } finally {
-      setIsAddingCategory(false);
-      setIsLoading(false);
+      setIsLoading(false); // <-- จบโหลด
     }
   };
-
   const resetForm = () => {
     setFormData({
       name: "",
@@ -159,56 +154,53 @@ export const MenuManagement: React.FC<MenuManagementProps> = ({
     }
   };
 
+  // สำหรับเพิ่มเมนู
   const handleAdd = async () => {
     if (!formData.name || !formData.price || !formData.category) {
       toast.error("กรุณากรอกข้อมูลให้ครบถ้วน");
       return;
     }
 
+    setIsLoading(true); // <-- เริ่มโหลด
     let imageUrl = formData.image;
     let imageKey = formData.imageKey;
 
-    //
-    if (file) {
-      try {
+    try {
+      if (file) {
         const uploadFormData = new FormData();
         uploadFormData.append("file", file);
 
-        // 1. ส่งไฟล์ไปยัง API Route ที่สร้างขึ้น (/api/upload)
         const response = await fetch("/api/upload", {
           method: "POST",
           body: uploadFormData,
         });
+        if (!response.ok) throw new Error("Failed to upload image");
 
-        if (!response.ok) {
-          throw new Error("Failed to upload image via API");
-        }
-
-        // 2. รับผลลัพธ์จาก API Route (secure_url และ public_id)
         const uploadResult = await response.json();
         imageUrl = uploadResult.data.secure_url;
         imageKey = uploadResult.data.public_id;
-      } catch (error) {
-        console.error("Failed to upload image:", error);
-        toast.error("ไม่สามารถอัปโหลดรูปภาพได้");
-        return;
       }
+
+      await onAddMenuItem({
+        name: formData.name,
+        price: parseFloat(formData.price),
+        category: formData.category,
+        description: formData.description || undefined,
+        available: formData.available,
+        image: imageUrl,
+        imageKey: imageKey,
+      });
+
+      resetForm();
+      setFile(null);
+      setShowAddDialog(false);
+      toast.success("เพิ่มเมนูสำเร็จ");
+    } catch (error) {
+      console.error("Failed to add menu item:", error);
+      toast.error("ไม่สามารถเพิ่มเมนูได้");
+    } finally {
+      setIsLoading(false); // <-- จบโหลด
     }
-
-    onAddMenuItem({
-      name: formData.name,
-      price: parseFloat(formData.price),
-      category: formData.category,
-      description: formData.description || undefined,
-      available: formData.available,
-      image: imageUrl,
-      imageKey: imageKey,
-    });
-
-    // รีเซ็ตฟอร์มและปิด dialog
-    resetForm();
-    setFile(null);
-    setShowAddDialog(false);
   };
 
   const handleEdit = (item: MenuItem) => {
@@ -229,12 +221,11 @@ export const MenuManagement: React.FC<MenuManagementProps> = ({
     if (!editingItem) return;
 
     setIsLoading(true); // <-- เริ่มโหลด
-
     let imageUrl = formData.image;
     let imageKey = formData.imageKey;
 
-    if (file) {
-      try {
+    try {
+      if (file) {
         const uploadFormData = new FormData();
         uploadFormData.append("file", file);
 
@@ -242,21 +233,13 @@ export const MenuManagement: React.FC<MenuManagementProps> = ({
           method: "POST",
           body: uploadFormData,
         });
-
-        if (!response.ok) throw new Error("Failed to upload image via API");
+        if (!response.ok) throw new Error("Failed to upload image");
 
         const uploadResult = await response.json();
         imageUrl = uploadResult.data.secure_url;
         imageKey = uploadResult.data.public_id;
-      } catch (error) {
-        console.error("Failed to upload image:", error);
-        toast.error("ไม่สามารถอัปโหลดรูปภาพได้");
-        setIsLoading(false);
-        return;
       }
-    }
 
-    try {
       await onEditMenuItem(editingItem.id, {
         name: formData.name,
         price: parseFloat(formData.price),
@@ -285,11 +268,20 @@ export const MenuManagement: React.FC<MenuManagementProps> = ({
     setShowDeleteDialog(true);
   };
 
-  const confirmDelete = () => {
-    if (deletingItemId) {
-      onDeleteMenuItem(deletingItemId);
+  const confirmDelete = async () => {
+    if (!deletingItemId) return;
+
+    setIsLoading(true); // <-- เริ่มโหลด
+    try {
+      await onDeleteMenuItem(deletingItemId);
       setDeletingItemId(null);
       setShowDeleteDialog(false);
+      toast.success("ลบเมนูสำเร็จ");
+    } catch (error) {
+      console.error("Failed to delete menu item:", error);
+      toast.error("ไม่สามารถลบเมนูได้");
+    } finally {
+      setIsLoading(false); // <-- จบโหลด
     }
   };
 

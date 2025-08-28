@@ -43,6 +43,7 @@ export const OrdersOverview: React.FC<OrdersOverviewProps> = ({
 
     return diffMinutes > 30;
   }; // รวมออเดอร์ตาม billId หรือ tableId
+
   const ordersGroupedByBill = useMemo(() => {
     const grouped: Record<string, Order[]> = {};
 
@@ -55,7 +56,6 @@ export const OrdersOverview: React.FC<OrdersOverviewProps> = ({
     return Object.values(grouped);
   }, [orders]);
 
-  // รวม items และ totalAmount
   const mergedOrders = ordersGroupedByBill.map((group: Order[]) => {
     return {
       ...group[0], // เอาข้อมูลโต๊ะ/บิลหลัก
@@ -64,7 +64,7 @@ export const OrdersOverview: React.FC<OrdersOverviewProps> = ({
         (sum: number, o: Order) => sum + o.totalAmount,
         0
       ),
-    } as Order; // type cast เป็น Order
+    } as Order;
   });
 
   // เรียงออเดอร์ตามลำดับความสำคัญ
@@ -377,9 +377,9 @@ export const OrdersOverview: React.FC<OrdersOverviewProps> = ({
           </div>
 
           <div className="grid gap-4 sm:gap-6 grid-cols-1 lg:grid-cols-2 xl:grid-cols-3">
-            {mergedOrders.slice(0, 12).map((order, idx) => (
+            {completedOrders.slice(0, 12).map((order, idx) => (
               <OrderCard
-                key={order.id ?? idx} // ถ้าไม่มี id ให้ใช้ idx
+                key={order.id ?? idx}
                 order={order}
                 onStatusChange={onOrderStatusChange}
                 showTimeAgo={showTimeAgo}
