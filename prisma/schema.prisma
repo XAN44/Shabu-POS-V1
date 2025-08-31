@@ -116,14 +116,35 @@ model MenuItem {
   available     Boolean         @default(true)
   orderItems    OrderItem[]
   DraftCartItem DraftCartItem[]
+  addons        MenuAddon[] // เพิ่มความสัมพันธ์กับ add-ons
 
   @@map("menu_items")
+}
+
+// เพิ่ม model ใหม่สำหรับ Add-ons
+model MenuAddon {
+  id          String  @id @default(cuid())
+  menuItemId  String
+  name        String
+  price       Float
+  category    String?
+  description String?
+  available   Boolean @default(true)
+
+  menuItem        MenuItem             @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
+  orderItemAddons OrderItemAddon[]
+  draftCartAddons DraftCartItemAddon[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("menu_addons")
 }
 
 // เปลี่ยนแค่ตรงนี้ - ใช้ SetNull แทน Cascade
 model Order {
   id           String      @id @default(cuid())
-  tableId      String? // เปลี่ยนเป็น optional
+  tableId      String?
   status       OrderStatus @default(new)
   totalAmount  Float
   orderTime    DateTime    @default(now())
@@ -131,8 +152,7 @@ model Order {
   customerName String?
   createdAt    DateTime    @default(now())
 
-  // เพิ่มฟิลด์สำรองเก็บข้อมูลโต๊ะ
-  tableNumber String? // เก็บหมายเลขโต๊ะไว้
+  tableNumber String?
 
   table Table?      @relation(fields: [tableId], references: [id], onDelete: SetNull)
   items OrderItem[]
@@ -181,10 +201,26 @@ model OrderItem {
   // เพิ่มฟิลด์สำรองเก็บข้อมูลเมนู
   menuItemName String? // เก็บชื่อเมนูไว้
 
-  order    Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  menuItem MenuItem? @relation(fields: [menuItemId], references: [id], onDelete: SetNull)
+  order    Order            @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  menuItem MenuItem?        @relation(fields: [menuItemId], references: [id], onDelete: SetNull)
+  addons   OrderItemAddon[] // เพิ่มความสัมพันธ์กับ add-ons
 
   @@map("order_items")
+}
+
+// เพิ่ม model ใหม่สำหรับ Add-ons ในออเดอร์
+model OrderItemAddon {
+  id          String  @id @default(cuid())
+  orderItemId String
+  addonId     String?
+  name        String // เก็บชื่อ addon ไว้
+  price       Float // เก็บราคา addon ไว้
+  quantity    Int     @default(1)
+
+  orderItem OrderItem  @relation(fields: [orderItemId], references: [id], onDelete: Cascade)
+  addon     MenuAddon? @relation(fields: [addonId], references: [id], onDelete: SetNull)
+
+  @@map("order_item_addons")
 }
 
 enum TableStatus {
@@ -222,14 +258,40 @@ model DraftCartItem {
   menuItemName  String?
   menuItemPrice Float?
 
-  draftCart DraftCart @relation(fields: [draftCartId], references: [id], onDelete: Cascade)
-  menuItem  MenuItem? @relation(fields: [menuItemId], references: [id], onDelete: SetNull) // เปลี่ยนเป็น SetNull
+  draftCart DraftCart            @relation(fields: [draftCartId], references: [id], onDelete: Cascade)
+  menuItem  MenuItem?            @relation(fields: [menuItemId], references: [id], onDelete: SetNull) // เปลี่ยนเป็ SetNull
+  addons    DraftCartItemAddon[] // เพิ่มความสัมพันธ์กับ add-ons
 
   @@index([draftCartId])
+}
+
+// เพิ่ม model ใหม่สำหรับ Add-ons ใน Draft Cart
+model DraftCartItemAddon {
+  id              String  @id @default(cuid())
+  draftCartItemId String
+  addonId         String?
+  name            String // เก็บชื่อ addon ไว้
+  price           Float // เก็บราคา addon ไว้
+  quantity        Int     @default(1)
+
+  draftCartItem DraftCartItem @relation(fields: [draftCartItemId], references: [id], onDelete: Cascade)
+  addon         MenuAddon?    @relation(fields: [addonId], references: [id], onDelete: SetNull)
+
+  @@map("draft_cart_item_addons")
 }
 
 model Category {
   id        String   @id @default(cuid())
   name      String
   createdAt DateTime @default(now())
+}
+
+model QRCodeSetting {
+  id        String   @id @default(cuid())
+  url       String // URL ของ QR Code image
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("qr_code_settings")
 }

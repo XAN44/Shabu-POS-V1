@@ -29,12 +29,21 @@ import {
 import { Table, Order } from "@/src/app/types/Order";
 import { toast } from "sonner";
 import { useSocketContext } from "@/src/app/providers/SocketProvider";
+import { QRCodeUpload } from "../QrcodeUpload";
+import Image from "next/image";
 
 interface CheckoutButtonProps {
   table: Table;
   orders: Order[];
   onCheckoutComplete?: () => void;
   disabled?: boolean;
+}
+
+interface QRCodeData {
+  id: string;
+  url: string;
+  isActive: boolean;
+  createdAt: string;
 }
 
 type CheckoutStep =
@@ -58,6 +67,8 @@ export const CheckoutButton: React.FC<CheckoutButtonProps> = ({
     useState<PaymentMethod | null>(null);
   const [billedOrderIds, setBilledOrderIds] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(false);
+  const [qrCodeData, setQrCodeData] = useState<QRCodeData | null>(null);
+  const [loadingQrCode, setLoadingQrCode] = useState(false);
 
   // Reset states when dialog opens
   const handleDialogOpen = (open: boolean) => {
@@ -66,8 +77,31 @@ export const CheckoutButton: React.FC<CheckoutButtonProps> = ({
       setCurrentStep("review");
       setSelectedPaymentMethod(null);
       setIsProcessing(false);
+      // โหลด QR Code เมื่อเปิด dialog
+      fetchQrCode();
     }
   };
+
+  // ดึงข้อมูล QR Code
+  const fetchQrCode = useCallback(async () => {
+    try {
+      setLoadingQrCode(true);
+      const response = await fetch("/api/qr-code");
+      if (response.ok) {
+        const result = await response.json();
+        if (result.success && result.data) {
+          setQrCodeData(result.data);
+        } else {
+          setQrCodeData(null);
+        }
+      }
+    } catch (error) {
+      console.error("Failed to fetch QR code:", error);
+      setQrCodeData(null);
+    } finally {
+      setLoadingQrCode(false);
+    }
+  }, []);
 
   // ดึงข้อมูลบิลที่มีอยู่แล้วเพื่อตรวจสอบออเดอร์ที่เช็คบิลแล้ว
   const fetchExistingBills = useCallback(async () => {
@@ -92,6 +126,16 @@ export const CheckoutButton: React.FC<CheckoutButtonProps> = ({
   useEffect(() => {
     fetchExistingBills();
   }, [fetchExistingBills]);
+
+  // Handle QR Code update from upload component
+  const handleQrCodeUpdate = (qrCodeUrl: string) => {
+    setQrCodeData({
+      id: Date.now().toString(), // Temporary ID
+      url: qrCodeUrl,
+      isActive: true,
+      createdAt: new Date().toISOString(),
+    });
+  };
 
   // กรองออเดอร์ที่ยังไม่ได้เช็คบิล (ไม่รวมออเดอร์ที่ยกเลิกและออเดอร์ที่เช็คบิลแล้ว)
   const pendingOrders = orders.filter(
@@ -127,6 +171,11 @@ export const CheckoutButton: React.FC<CheckoutButtonProps> = ({
 
   // Handle payment method selection
   const handlePaymentMethodSelect = (method: PaymentMethod) => {
+    if (method === "qrcode" && !qrCodeData) {
+      toast.error("กรุณาอัพโหลด QR Code ก่อนเลือกการชำระแบบ QR Code");
+      return;
+    }
+
     setSelectedPaymentMethod(method);
     if (method === "cash") {
       setCurrentStep("cash-waiting");
@@ -391,7 +440,8 @@ export const CheckoutButton: React.FC<CheckoutButtonProps> = ({
                       >
                         <div className="min-w-0 flex-1">
                           <div className="font-medium truncate">
-                            {item.quantity} × {item.menuItem.name}
+                            {item.quantity} ×{" "}
+                            {item.menuItem?.name || "ชื่อเมนูถูกลบ"}
                           </div>
                           {item.notes && (
                             <div className="text-xs text-gray-500 mt-0.5 break-words">
@@ -452,16 +502,48 @@ export const CheckoutButton: React.FC<CheckoutButtonProps> = ({
 
         {/* QR Code Payment */}
         <Card
-          className="border-2 hover:border-blue-300 hover:bg-blue-50 cursor-pointer transition-all"
-          onClick={() => handlePaymentMethodSelect("qrcode")}
+          className={`border-2 transition-all ${
+            qrCodeData
+              ? "hover:border-blue-300 hover:bg-blue-50 cursor-pointer"
+              : "border-gray-200 bg-gray-50 cursor-not-allowed opacity-60"
+          }`}
+          onClick={() => qrCodeData && handlePaymentMethodSelect("qrcode")}
         >
-          <CardContent className="p-6 text-center">
+          <CardContent className="p-6 text-center relative">
+            {loadingQrCode && (
+              <div className="absolute inset-0 bg-white bg-opacity-75 flex items-center justify-center rounded-lg">
+                <Loader2 className="w-6 h-6 animate-spin text-blue-600" />
+              </div>
+            )}
+
             <QrCode className="w-12 h-12 mx-auto mb-4 text-blue-600" />
             <h4 className="text-lg font-semibold mb-2">QR Code</h4>
-            <p className="text-sm text-gray-600">สแกน QR Code เพื่อชำระ</p>
+            <p className="text-sm text-gray-600 mb-3">
+              {qrCodeData ? "สแกน QR Code เพื่อชำระ" : "ยังไม่มี QR Code"}
+            </p>
+
+            {qrCodeData === null && (
+              <div className="mt-4">
+                <QRCodeUpload
+                  currentQrCode={null}
+                  onQrCodeUpdate={handleQrCodeUpdate}
+                  className="w-full"
+                />
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
+
+      {/* QR Code Management */}
+      {qrCodeData && (
+        <div className="flex justify-center">
+          <QRCodeUpload
+            currentQrCode={qrCodeData!.url}
+            onQrCodeUpdate={handleQrCodeUpdate}
+          />
+        </div>
+      )}
     </div>
   );
 
@@ -504,17 +586,29 @@ export const CheckoutButton: React.FC<CheckoutButtonProps> = ({
         </p>
       </div>
 
-      {/* QR Code Placeholder */}
-      <div className="bg-white border-2 border-dashed border-gray-300 rounded-lg p-8">
-        <div className="w-48 h-48 mx-auto bg-gray-100 rounded-lg flex items-center justify-center">
-          <div className="text-center">
-            <QrCode className="w-16 h-16 mx-auto mb-2 text-gray-400" />
-            <p className="text-sm text-gray-500">QR Code สำหรับชำระเงิน</p>
-            <p className="text-xs text-gray-400 mt-1">
-              (ในการใช้งานจริงจะแสดง QR Code จาก Payment Gateway)
-            </p>
+      {/* QR Code Display */}
+      <div className="bg-white border-2 border-gray-300 rounded-lg p-8">
+        {qrCodeData ? (
+          <div className="flex flex-col items-center">
+            <div className="w-48 h-48 mx-auto mb-4 bg-white rounded-lg flex items-center justify-center border border-gray-200">
+              <Image
+                width={1080}
+                height={1080}
+                src={qrCodeData.url}
+                alt="QR Code สำหรับชำระเงิน"
+                className="max-w-full max-h-full object-contain rounded-lg"
+              />
+            </div>
+            <p className="text-sm text-gray-600">QR Code สำหรับชำระเงิน</p>
           </div>
-        </div>
+        ) : (
+          <div className="w-48 h-48 mx-auto bg-gray-100 rounded-lg flex items-center justify-center">
+            <div className="text-center">
+              <QrCode className="w-16 h-16 mx-auto mb-2 text-gray-400" />
+              <p className="text-sm text-gray-500">ไม่มี QR Code</p>
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
@@ -535,12 +629,6 @@ export const CheckoutButton: React.FC<CheckoutButtonProps> = ({
       <h3 className="text-lg lg:text-xl font-semibold text-green-700 mb-2">
         เช็คบิลสำเร็จ!
       </h3>
-      <p className="text-gray-600 text-sm lg:text-base mb-2">
-        ชำระเงินด้วย{selectedPaymentMethod === "cash" ? "เงินสด" : "QR Code"}
-      </p>
-      <p className="text-gray-600 text-sm lg:text-base">
-        ยอดรวม: ฿{totalAmount.toLocaleString()}
-      </p>
     </div>
   );
 

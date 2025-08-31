@@ -1,5 +1,5 @@
 import { Order } from "@/src/app/types/Order";
-import { Clock, Target } from "lucide-react";
+import { Clock, Target, AlertTriangle } from "lucide-react";
 import React from "react";
 import { OrderCard } from "./OrderCard";
 
@@ -28,7 +28,7 @@ function LastOrder({
     return diffMinutes > 30;
   };
 
-  // เรียงออเดอร์ตามลำดับความสำคัญ
+  // Sort orders by priority
   const sortedOrders = [...orders].sort((a, b) => {
     const statusPriority = {
       new: 1,
@@ -47,7 +47,7 @@ function LastOrder({
     return new Date(a.orderTime).getTime() - new Date(b.orderTime).getTime();
   });
 
-  // แยกออเดอร์ตามสถานะ
+  // Separate orders by status
   const ordersByStatus = {
     new: sortedOrders.filter((o) => o.status === "new"),
     preparing: sortedOrders.filter((o) => o.status === "preparing"),
@@ -62,55 +62,71 @@ function LastOrder({
     ...ordersByStatus.ready,
   ];
 
-  return (
-    <div className="">
-      {activeOrders.length > 0 && (
-        <div className="bg-white/90 backdrop-blur-xl rounded-2xl sm:rounded-3xl border border-orange-200/50 shadow-xl p-4 sm:p-6 md:p-8">
-          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 sm:gap-6 mb-6 sm:mb-8">
-            <div className="flex flex-col sm:flex-row items-center gap-3 sm:gap-4">
-              <div className="relative">
-                <div className="w-10 h-10 sm:w-14 sm:h-14 bg-gradient-to-br from-orange-500 to-red-600 rounded-xl sm:rounded-2xl flex items-center justify-center shadow-xl">
-                  <Clock className="w-5 h-5 sm:w-7 sm:h-7 text-white" />
-                </div>
-                <div className="absolute -top-1 -right-1 w-4 h-4 sm:w-6 sm:h-6 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-full flex items-center justify-center shadow-lg animate-pulse">
-                  <Target className="w-2 h-2 sm:w-3 sm:h-3 text-white" />
-                </div>
-              </div>
-              <div className="text-center sm:text-left">
-                <h3 className="text-xl sm:text-2xl font-bold text-orange-800">
-                  ออเดอร์ที่กำลังดำเนินการ
-                </h3>
-                <p className="text-sm sm:text-base text-orange-600 font-medium">
-                  ออเดอร์ที่ต้องดำเนินการและติดตาม
-                </p>
-              </div>
-            </div>
+  const urgentOrdersCount = activeOrders.filter(isUrgentOrder).length;
 
-            <div className="flex flex-wrap items-center justify-center lg:justify-end gap-2 sm:gap-3">
-              <div className="px-3 sm:px-5 py-2 sm:py-2.5 bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-xl sm:rounded-2xl font-bold shadow-lg text-sm sm:text-base">
-                {activeOrders.length} ออเดอร์
-              </div>
-              {activeOrders.some(isUrgentOrder) && (
-                <div className="px-3 sm:px-4 py-2 sm:py-2.5 bg-gradient-to-r from-red-600 to-pink-600 text-white rounded-xl sm:rounded-2xl text-xs sm:text-sm font-bold animate-bounce shadow-lg">
-                  เร่งด่วน!
-                </div>
-              )}
+  if (activeOrders.length === 0) {
+    return (
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 sm:p-8">
+        <div className="text-center py-8">
+          <div className="w-16 h-16 bg-green-50 rounded-2xl flex items-center justify-center mx-auto mb-4">
+            <Target className="w-8 h-8 text-green-500" />
+          </div>
+          <h3 className="text-xl font-bold text-gray-900 mb-2">
+            ออเดอร์ทั้งหมดเสร็จสิ้น
+          </h3>
+          <p className="text-gray-500">ไม่มีออเดอร์ที่ต้องดำเนินการในขณะนี้</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
+      {/* Header */}
+      <div className="bg-orange-500 px-4 sm:px-6 py-4">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
+              <Clock className="w-6 h-6 text-white" />
+            </div>
+            <div>
+              <h3 className="text-lg font-bold text-white">
+                ออเดอร์กำลังดำเนินการ
+              </h3>
+              <p className="text-orange-100 text-sm">
+                {activeOrders.length} ออเดอร์ที่ต้องติดตาม
+              </p>
             </div>
           </div>
 
-          <div className="grid gap-4 sm:gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 ">
-            {activeOrders.map((order) => (
-              <OrderCard
-                key={order.id}
-                order={order}
-                onStatusChange={onOrderStatusChange}
-                showTimeAgo={showTimeAgo}
-                isUrgent={isUrgentOrder(order)}
-              />
-            ))}
+          <div className="flex items-center gap-2">
+            <div className="px-3 py-1.5 bg-white/20 rounded-lg text-white text-sm font-medium">
+              {activeOrders.length} ออเดอร์
+            </div>
+            {urgentOrdersCount > 0 && (
+              <div className="px-3 py-1.5 bg-red-600 rounded-lg text-white text-sm font-medium animate-pulse flex items-center gap-1">
+                <AlertTriangle className="w-4 h-4" />
+                เร่งด่วน {urgentOrdersCount}
+              </div>
+            )}
           </div>
         </div>
-      )}
+      </div>
+
+      {/* Content */}
+      <div className="p-4 sm:p-6 bg-orange-50">
+        <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+          {activeOrders.map((order) => (
+            <OrderCard
+              key={order.id}
+              order={order}
+              onStatusChange={onOrderStatusChange}
+              showTimeAgo={showTimeAgo}
+              isUrgent={isUrgentOrder(order)}
+            />
+          ))}
+        </div>
+      </div>
     </div>
   );
 }

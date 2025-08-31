@@ -1,6 +1,6 @@
 "use client";
 // components/orders/OrdersOverview.tsx
-import React, { useMemo } from "react";
+import React from "react";
 import { Order } from "@/src/app/types/Order";
 import { OrderCard } from "./OrderCard";
 import {
@@ -14,7 +14,6 @@ import {
   Activity,
   Sparkles,
   ArrowUp,
-  Target,
   Award,
 } from "lucide-react";
 
@@ -32,40 +31,6 @@ export const OrdersOverview: React.FC<OrdersOverviewProps> = ({
   showTimeAgo = true,
 }) => {
   // ฟังก์ชันตรวจสอบออเดอร์เร่งด่วน
-  const isUrgentOrder = (order: Order): boolean => {
-    if (order.status === "served" || order.status === "cancelled") {
-      return false;
-    }
-
-    const orderTime = new Date(order.orderTime);
-    const now = new Date();
-    const diffMinutes = (now.getTime() - orderTime.getTime()) / (1000 * 60);
-
-    return diffMinutes > 30;
-  }; // รวมออเดอร์ตาม billId หรือ tableId
-
-  const ordersGroupedByBill = useMemo(() => {
-    const grouped: Record<string, Order[]> = {};
-
-    orders.forEach((order: Order) => {
-      const key = order.billId ?? `table-${order.tableId}-temp`;
-      if (!grouped[key]) grouped[key] = [];
-      grouped[key].push(order);
-    });
-
-    return Object.values(grouped);
-  }, [orders]);
-
-  const mergedOrders = ordersGroupedByBill.map((group: Order[]) => {
-    return {
-      ...group[0], // เอาข้อมูลโต๊ะ/บิลหลัก
-      items: group.flatMap((o: Order) => o.items),
-      totalAmount: group.reduce(
-        (sum: number, o: Order) => sum + o.totalAmount,
-        0
-      ),
-    } as Order;
-  });
 
   // เรียงออเดอร์ตามลำดับความสำคัญ
   const sortedOrders = [...orders].sort((a, b) => {

@@ -202,6 +202,17 @@ const CartItemRow: React.FC<CartItemRowProps> = ({
   onUpdateQuantity,
   onRemoveItem,
 }) => {
+  const getItemTotalWithAddons = () => {
+    const basePrice = item.menuItem.price * item.quantity;
+    const addonsPrice = item.selectedAddons
+      ? item.selectedAddons.reduce(
+          (sum, addon) => sum + addon.price * addon.quantity * item.quantity,
+          0
+        )
+      : 0;
+    return basePrice + addonsPrice;
+  };
+
   return (
     <div className="bg-gradient-to-r from-white to-orange-50/30 dark:from-gray-800 dark:to-orange-900/10 rounded-xl border border-gray-200 dark:border-gray-700 hover:border-orange-200 dark:hover:border-orange-800 overflow-hidden transition-all duration-300 shadow-sm">
       <div className="p-3 sm:p-4">
@@ -212,14 +223,34 @@ const CartItemRow: React.FC<CartItemRowProps> = ({
               <h4 className="font-bold text-gray-900 dark:text-gray-100 text-sm leading-tight line-clamp-2 mb-2">
                 {item.menuItem.name}
               </h4>
-              <div className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400">
-                <span className="bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 px-2 py-1 rounded-full font-medium">
-                  ฿{item.menuItem.price.toLocaleString()}
-                </span>
-                <span>×</span>
-                <span className="font-bold text-gray-800 dark:text-gray-200">
-                  {item.quantity}
-                </span>
+              <div className="space-y-1">
+                <div className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400">
+                  <span className="bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 px-2 py-1 rounded-full font-medium">
+                    ฿{item.menuItem.price.toLocaleString()}
+                  </span>
+                  <span>×</span>
+                  <span className="font-bold text-gray-800 dark:text-gray-200">
+                    {item.quantity}
+                  </span>
+                </div>
+
+                {/* Show addons */}
+                {item.selectedAddons && item.selectedAddons.length > 0 && (
+                  <div className="space-y-1">
+                    {item.selectedAddons.map((addon, addonIndex) => (
+                      <div
+                        key={addonIndex}
+                        className="flex items-center gap-2 text-xs text-blue-600 dark:text-blue-400"
+                      >
+                        <span>+ {addon.name}</span>
+                        <span>×{addon.quantity}</span>
+                        <span className="bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 px-2 py-0.5 rounded-full font-medium">
+                          ฿{addon.price.toLocaleString()}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
             <div className="text-right flex-shrink-0">
@@ -263,19 +294,37 @@ const CartItemRow: React.FC<CartItemRowProps> = ({
 
         {/* Desktop Layout */}
         <div className="hidden sm:flex items-center gap-4">
-          <div className="flex-1 min-w-0">
-            <h4 className="font-bold text-gray-900 dark:text-gray-100 text-base leading-tight line-clamp-1 mb-1">
-              {item.menuItem.name}
-            </h4>
-            <div className="flex items-center gap-3 text-sm text-gray-600 dark:text-gray-400">
-              <span className="bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 px-2 py-1 rounded-full font-medium">
-                ฿{item.menuItem.price.toLocaleString()}
-              </span>
-              <span>×</span>
-              <span className="font-bold text-gray-800 dark:text-gray-200">
-                {item.quantity}
-              </span>
+          <div className="flex-1 min-w-0 space-y-2">
+            <div className="flex items-center gap-3">
+              <h4 className="font-bold text-gray-900 dark:text-gray-100 text-base leading-tight line-clamp-1">
+                {item.menuItem.name}
+              </h4>
+              <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
+                <span className="bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 px-2 py-1 rounded-full font-medium">
+                  ฿{item.menuItem.price.toLocaleString()}
+                </span>
+                <span>×</span>
+                <span className="font-bold text-gray-800 dark:text-gray-200">
+                  {item.quantity}
+                </span>
+              </div>
             </div>
+
+            {/* Show addons in desktop layout */}
+            {item.selectedAddons && item.selectedAddons.length > 0 && (
+              <div className="flex flex-wrap gap-2">
+                {item.selectedAddons.map((addon, addonIndex) => (
+                  <div
+                    key={addonIndex}
+                    className="flex items-center gap-1 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 px-2 py-1 rounded-full text-xs border border-blue-200 dark:border-blue-700"
+                  >
+                    <span>+ {addon.name}</span>
+                    <span className="font-semibold">×{addon.quantity}</span>
+                    <span className="font-bold">฿{addon.price}</span>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           <div className="flex items-center gap-3 flex-shrink-0">

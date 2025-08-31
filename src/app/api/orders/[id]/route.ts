@@ -1,4 +1,4 @@
-// API ORDER ID
+// order/[id]/route.ts
 import { NextResponse } from "next/server";
 import db from "../../../lib/prismaClient";
 import { OrderStatusEvent, TableStatusEvent } from "@/src/app/types/socket";
@@ -44,7 +44,13 @@ export async function PATCH(
         notes: body.notes,
       },
       include: {
-        items: { include: { menuItem: true } },
+        items: {
+          include: {
+            menuItem: {
+              include: { addons: true }, // ✅ ใส่ตรงนี้
+            },
+          },
+        },
         table: true,
       },
     });
@@ -208,6 +214,7 @@ export async function GET(
             menuItem: true,
             quantity: true,
             notes: true,
+            addons: true,
           },
         },
       },

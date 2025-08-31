@@ -56,7 +56,7 @@ export const OrderCard: React.FC<OrderCardProps> = ({
           <CardTitle className="text-lg">
             <div className="flex items-center gap-2">
               <MapPin className="w-4 h-4" />
-              โต๊ะ {order.table.number}
+              โต๊ะ {order.table?.number || "ไม่สามารถระบุโต๊ะ"}
             </div>
           </CardTitle>
           <Badge className={`${statusColors[order.status]} text-white`}>

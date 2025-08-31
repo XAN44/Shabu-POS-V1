@@ -3,34 +3,55 @@
 import { useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 
+// กำหนด type สำหรับข้อมูล
+interface MenuAddon {
+  id: string;
+  name: string;
+  price: number;
+}
+
+interface OrderItemAddon {
+  id: string;
+  name: string;
+  price: number;
+  quantity: number;
+  addon?: MenuAddon;
+}
+
+interface MenuItem {
+  id: string;
+  name: string;
+  price: number;
+}
+
 interface OrderItem {
   id: string;
-  menuItem: { name: string; price?: number };
   quantity: number;
   price: number;
-  notes?: string;
+  menuItemName?: string;
+  menuItem?: MenuItem;
+  addons: OrderItemAddon[];
 }
 
 interface Order {
   id: string;
-  tableId: string;
-  table: { number: string };
-  items: OrderItem[];
   totalAmount: number;
   orderTime: string;
-  notes?: string;
-  status?: string;
+  items: OrderItem[];
+}
+
+interface Table {
+  id: string;
+  number: string;
 }
 
 interface Bill {
   id: string;
-  tableId?: string;
-  table?: { number: string };
   totalAmount: number;
-  paymentMethod?: string;
   paymentTime: string;
+  paymentMethod?: string;
+  table?: Table;
   orders: Order[];
-  orderIds?: string[];
 }
 
 export default function ReceiptPage() {
@@ -42,207 +63,325 @@ export default function ReceiptPage() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!billId) {
-      setError("ไม่พบ Bill ID");
-      setLoading(false);
-      return;
-    }
+    if (!billId) return;
 
-    console.log("🔍 Fetching bill with ID:", billId);
-
-    // เปลี่ยนจาก query parameter เป็น dynamic route
     fetch(`/api/bills/${billId}`)
-      .then(async (res) => {
-        console.log("📡 Response status:", res.status, res.statusText);
-
+      .then((res) => {
         if (!res.ok) {
-          const errorText = await res.text();
-          throw new Error(`HTTP ${res.status}: ${errorText}`);
+          throw new Error("Failed to fetch bill");
         }
         return res.json();
       })
       .then((data) => {
-        console.log("📄 Raw API response:", data);
-
-        // ตรวจสอบว่าข้อมูลเป็น array หรือ object
-        const billData = Array.isArray(data) ? data[0] : data;
-
-        setBill(billData);
+        setBill(data);
         setLoading(false);
 
-        // auto print หลังจากโหลดเสร็จ (เพิ่มเวลารอเพื่อให้ render เสร็จ)
-        setTimeout(() => {
-          console.log("🖨️ Triggering print...");
-          window.print();
-        }, 1000);
+        // auto print หลังจากโหลดเสร็จ
+        setTimeout(() => window.print(), 500);
       })
       .catch((err) => {
-        console.error("❌ Error fetching bill:", err);
         setError(err.message);
         setLoading(false);
       });
   }, [billId]);
 
-  if (loading) {
-    return (
-      <div className="p-6 text-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto mb-2"></div>
-        กำลังโหลดใบเสร็จ...
-      </div>
-    );
-  }
-
-  if (error) {
+  if (loading) return <div className="p-6 text-center">กำลังโหลด...</div>;
+  if (error)
     return (
       <div className="p-6 text-center text-red-500">
-        <div className="mb-2">⚠️ เกิดข้อผิดพลาด</div>
-        <div className="text-sm">{error}</div>
-        <button
-          onClick={() => window.location.reload()}
-          className="mt-4 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
-        >
-          ลองใหม่
-        </button>
+        เกิดข้อผิดพลาด: {error}
       </div>
     );
-  }
+  if (!bill) return <div className="p-6 text-center">ไม่พบใบเสร็จ</div>;
 
-  if (!bill) {
-    return (
-      <div className="p-6 text-center">
-        <div className="mb-2">📄 ไม่พบข้อมูลใบเสร็จ</div>
-        <div className="text-sm text-gray-500">Bill ID: {billId}</div>
-      </div>
-    );
-  }
-
-  // คำนวณยอดรวมจาก orders หาก totalAmount ไม่ถูกต้อง
-  const calculatedTotal =
-    bill.orders?.reduce((sum, order) => sum + (order.totalAmount || 0), 0) || 0;
-  const displayTotal = bill.totalAmount || calculatedTotal;
+  // คำนวณรายการทั้งหมด
+  const allItems = bill.orders.flatMap((order) =>
+    order.items.map((item) => ({
+      ...item,
+      orderTime: order.orderTime,
+    }))
+  );
 
   return (
-    <div className="receipt p-4 text-sm w-80 mx-auto bg-white">
+    <div className="receipt p-4 text-sm w-80 mx-auto bg-white print:w-full print:max-w-none font-mono">
       {/* Header */}
-      <div className="text-center border-b-2 border-dashed pb-2 mb-4">
-        <h2 className="font-bold text-lg">🍲 Shabu POS</h2>
-        <p className="text-xs">ใบเสร็จรับเงิน</p>
+      <div className="text-center border-b-2 border-double pb-3 mb-4">
+        <h1 className="text-xl font-bold mb-1">ร้านอาหาร ABC</h1>
+        <p className="text-xs text-gray-600">Restaurant ABC</p>
+        <div className="mt-2 text-xs">
+          <p>123 ถนนสุขุมวิท กรุงเทพฯ 10110</p>
+          <p>Tel: 02-123-4567</p>
+        </div>
       </div>
 
-      {/* Bill Info */}
-      <div className="mb-4 text-xs space-y-1">
-        <div className="flex justify-between">
-          <span>โต๊ะ:</span>
-          <span>{bill.table?.number || bill.tableId || "ไม่ระบุ"}</span>
+      {/* ข้อมูลบิล */}
+      <div className="mb-4">
+        <div className="grid grid-cols-2 gap-2 text-xs mb-2">
+          <div>
+            <span className="font-semibold">เลขที่บิล:</span>
+            <br />
+            <span className="font-mono">#{bill.id.slice(-8)}</span>
+          </div>
+          {bill.table && (
+            <div>
+              <span className="font-semibold">โต๊ะ:</span>
+              <br />
+              <span className="text-lg font-bold">{bill.table.number}</span>
+            </div>
+          )}
         </div>
-        <div className="flex justify-between">
-          <span>เวลา:</span>
-          <span>
-            {bill.paymentTime
-              ? new Date(bill.paymentTime).toLocaleString("th-TH", {
-                  year: "numeric",
-                  month: "2-digit",
-                  day: "2-digit",
-                  hour: "2-digit",
-                  minute: "2-digit",
-                })
-              : "ไม่ระบุเวลา"}
-          </span>
+
+        <div className="grid grid-cols-2 gap-2 text-xs">
+          <div>
+            <span className="font-semibold">วันที่:</span>
+            <br />
+            <span>
+              {new Date(bill.paymentTime).toLocaleDateString("th-TH")}
+            </span>
+          </div>
+          <div>
+            <span className="font-semibold">เวลา:</span>
+            <br />
+            <span>
+              {new Date(bill.paymentTime).toLocaleTimeString("th-TH", {
+                hour: "2-digit",
+                minute: "2-digit",
+              })}
+            </span>
+          </div>
         </div>
+
         {bill.paymentMethod && (
-          <div className="flex justify-between">
-            <span>วิธีชำระเงิน:</span>
-            <span>{bill.paymentMethod}</span>
+          <div className="mt-2 text-xs">
+            <span className="font-semibold">วิธีชำระ: </span>
+            <span className="bg-gray-100 px-2 py-1 rounded">
+              {bill.paymentMethod}
+            </span>
           </div>
         )}
       </div>
 
-      {/* Orders Section */}
-      <div className="border-t border-b border-dashed py-2 my-2">
-        {bill.orders && bill.orders.length > 0 ? (
-          bill.orders.map((order, orderIndex) => (
-            <div key={order.id} className="mb-3">
-              <div className="text-xs font-semibold mb-2 text-gray-600 border-b border-gray-200 pb-1">
-                Order #{orderIndex + 1} (ID: {order.id})
-                {order.orderTime && (
-                  <div className="font-normal text-gray-500">
-                    {new Date(order.orderTime).toLocaleString("th-TH", {
-                      month: "short",
-                      day: "numeric",
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })}
-                  </div>
-                )}
+      <div className="border-t-2 border-double pt-2 mb-2"></div>
+
+      {/* รายการสินค้า */}
+      <div className="mb-4">
+        <div className="text-center text-xs font-bold mb-3 border-b border-gray-300 pb-1">
+          รายการอาหาร / ITEMS
+        </div>
+
+        {allItems.map((item, index) => {
+          // คำนวณราคาต่อหน่วยของเมนูหลัก
+          const menuUnitPrice =
+            item.menuItem?.price || item.price / item.quantity;
+
+          // คำนวณราคารวมของ addons
+          const addonsTotal = item.addons.reduce(
+            (sum, addon) => sum + addon.price * addon.quantity,
+            0
+          );
+
+          // ราคารวมของรายการนี้ (เมนูหลัก + addons)
+          const itemTotal = menuUnitPrice * item.quantity + addonsTotal;
+
+          return (
+            <div key={index} className="mb-4 pb-3 border-b border-dotted">
+              {/* หัวรายการ */}
+              <div className="flex justify-between items-start mb-2">
+                <div className="flex-1">
+                  <h3 className="font-bold text-sm leading-tight">
+                    {index + 1}.{" "}
+                    {item.menuItemName || item.menuItem?.name || "ไม่ระบุ"}
+                  </h3>
+                </div>
+                <div className="text-right ml-2">
+                  <div className="text-xs text-gray-600">จำนวน</div>
+                  <div className="font-bold text-sm">{item.quantity}</div>
+                </div>
               </div>
 
-              {order.items && order.items.length > 0 ? (
-                <div className="space-y-1">
-                  {order.items.map((item) => (
-                    <div key={item.id} className="flex justify-between text-xs">
-                      <div className="flex-1">
-                        <div>{item.menuItem?.name || "ไม่ระบุชื่อ"}</div>
-                        <div className="text-gray-500">
-                          ฿{item.price.toLocaleString()} x {item.quantity}
+              {/* รายละเอียดราคา */}
+              <div className="bg-gray-50 p-2 rounded text-xs space-y-1">
+                <div className="flex justify-between">
+                  <span>ราคาต่อหน่วย:</span>
+                  <span className="font-mono">
+                    ฿{menuUnitPrice.toLocaleString()}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span>จำนวน:</span>
+                  <span className="font-mono">{item.quantity} รายการ</span>
+                </div>
+                <div className="flex justify-between border-t border-gray-200 pt-1">
+                  <span className="font-semibold">รวมเมนูหลัก:</span>
+                  <span className="font-bold font-mono">
+                    ฿{(menuUnitPrice * item.quantity).toLocaleString()}
+                  </span>
+                </div>
+              </div>
+
+              {/* Add-ons */}
+              {item.addons && item.addons.length > 0 && (
+                <div className="mt-2">
+                  <div className="text-xs text-gray-600 mb-1 font-semibold">
+                    เพิ่มเติม:
+                  </div>
+                  {item.addons.map((addon, addonIndex) => (
+                    <div
+                      key={addonIndex}
+                      className="bg-blue-50 p-2 rounded mb-1"
+                    >
+                      <div className="flex justify-between items-center">
+                        <div className="flex-1">
+                          <span className="text-xs font-medium">
+                            • {addon.name}
+                          </span>
                         </div>
-                        {item.notes && (
-                          <div className="text-gray-400 italic text-xs">
-                            หมายเหตุ: {item.notes}
+                        <div className="text-xs text-right ml-2">
+                          <div>จำนวน: {addon.quantity}</div>
+                          <div>
+                            ฿{addon.price.toLocaleString()} × {addon.quantity}
                           </div>
-                        )}
-                      </div>
-                      <div className="text-right font-medium">
-                        ฿{(item.price * item.quantity).toLocaleString()}
+                          <div className="font-bold">
+                            = ฿{(addon.price * addon.quantity).toLocaleString()}
+                          </div>
+                        </div>
                       </div>
                     </div>
                   ))}
-                </div>
-              ) : (
-                <div className="text-xs text-gray-500 italic">
-                  ไม่มี items ในออเดอร์นี้
+
+                  {/* รวม addons */}
+                  {addonsTotal > 0 && (
+                    <div className="bg-blue-100 p-2 rounded mt-1">
+                      <div className="flex justify-between text-xs font-semibold">
+                        <span>รวมเพิ่มเติม:</span>
+                        <span className="font-mono">
+                          ฿{addonsTotal.toLocaleString()}
+                        </span>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
 
-              {order.totalAmount > 0 && (
-                <div className="text-xs text-right mt-1 pt-1 border-t border-gray-200">
-                  รวม: ฿{order.totalAmount.toLocaleString()}
+              {/* รวมรายการนี้ทั้งหมด */}
+              <div className="bg-green-50 border border-green-200 p-2 rounded mt-2">
+                <div className="flex justify-between text-sm font-bold">
+                  <span>รวมรายการนี้ทั้งหมด:</span>
+                  <span className="font-mono text-green-700">
+                    ฿{itemTotal.toLocaleString()}
+                  </span>
                 </div>
-              )}
-            </div>
-          ))
-        ) : (
-          <div className="text-center text-xs text-gray-500 py-4">
-            <div>⚠️ ไม่มีรายการสั่งซื้อ</div>
-            {bill.orderIds && bill.orderIds.length > 0 && (
-              <div className="mt-2 text-xs">
-                Order IDs ที่ไม่พบ: {bill.orderIds.join(", ")}
               </div>
-            )}
-          </div>
-        )}
+            </div>
+          );
+        })}
       </div>
 
-      {/* Total */}
-      <div className="border-t border-dashed pt-2 space-y-1">
-        <div className="flex justify-between font-bold text-base">
-          <span>รวมทั้งหมด</span>
-          <span>฿{displayTotal.toLocaleString()}</span>
+      <div className="border-t-2 border-double pt-2 mb-2"></div>
+
+      {/* สรุปยอด */}
+      <div className="space-y-1 mb-4">
+        <div className="flex justify-between text-sm">
+          <span>จำนวนรายการทั้งหมด:</span>
+          <span className="font-mono">
+            {allItems.reduce((sum, item) => sum + item.quantity, 0)} รายการ
+          </span>
         </div>
 
-        {bill.totalAmount !== calculatedTotal && calculatedTotal > 0 && (
-          <div className="text-xs text-gray-500">
-            (คำนวณจากออเดอร์: ฿{calculatedTotal.toLocaleString()})
+        <div className="border-t border-dashed pt-2">
+          <div className="flex justify-between text-lg font-bold bg-gray-100 p-2 rounded">
+            <span>ยอดรวมทั้งสิ้น</span>
+            <span className="font-mono">
+              ฿{bill.totalAmount.toLocaleString()}
+            </span>
           </div>
-        )}
+        </div>
       </div>
 
+      <div className="border-t-2 border-double pt-3"></div>
+
       {/* Footer */}
-      <div className="text-center mt-6 pt-4 border-t border-dashed">
-        <p className="text-xs">ขอบคุณที่ใช้บริการ ❤️</p>
-        <p className="text-xs text-gray-500 mt-1">
-          พิมพ์เมื่อ: {new Date().toLocaleString("th-TH")}
-        </p>
+      <div className="text-center text-xs text-gray-600 space-y-2">
+        <div className="border border-gray-300 rounded p-2">
+          <p className="font-semibold">ขอบคุณที่ใช้บริการ</p>
+          <p>Thank you for your business</p>
+          <p className="mt-1 text-gray-500">กรุณาเก็บใบเสร็จไว้เป็นหลักฐาน</p>
+        </div>
+
+        <div className="pt-2 border-t border-dotted text-gray-400">
+          <p>พิมพ์เมื่อ: {new Date().toLocaleString("th-TH")}</p>
+          <p className="text-xs">System ID: {bill.id}</p>
+        </div>
       </div>
+
+      {/* Print styles */}
+      <style jsx>{`
+        @media print {
+          .receipt {
+            margin: 0;
+            padding: 8px;
+            width: 100% !important;
+            max-width: 58mm;
+            font-size: 9px;
+            line-height: 1.2;
+          }
+
+          body {
+            margin: 0;
+            padding: 0;
+          }
+
+          @page {
+            margin: 0;
+            size: 58mm auto;
+          }
+
+          .text-right {
+            text-align: right !important;
+          }
+
+          .text-center {
+            text-align: center !important;
+          }
+
+          .bg-gray-100,
+          .bg-gray-50 {
+            background-color: #f5f5f5 !important;
+          }
+
+          .bg-blue-50 {
+            background-color: #eff6ff !important;
+          }
+
+          .bg-blue-100 {
+            background-color: #dbeafe !important;
+          }
+
+          .bg-green-50 {
+            background-color: #f0fdf4 !important;
+          }
+
+          .border-green-200 {
+            border-color: #bbf7d0 !important;
+          }
+
+          .border-double {
+            border-style: double !important;
+          }
+
+          .border-dotted {
+            border-style: dotted !important;
+          }
+
+          .border-dashed {
+            border-style: dashed !important;
+          }
+
+          .text-green-700 {
+            color: #15803d !important;
+          }
+        }
+      `}</style>
     </div>
   );
 }

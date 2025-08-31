@@ -18,7 +18,7 @@ export default function ReceiptPage({ order }: Props) {
       <div className="text-center text-xs mb-4">ใบเสร็จอย่างย่อ</div>
 
       <div className="border-t border-b py-2 my-2">
-        โต๊ะ: {order.table.number}
+        โต๊ะ: {order.table?.number || "ไม่สามารถระบุ"}
       </div>
 
       <div>

@@ -8,11 +8,13 @@ export async function GET(
   try {
     const { id } = await params;
 
-    // ดึงบิล
+    // ดึงข้อมูลบิลพร้อมกับข้อมูลโต๊ะ
     const bill = await db.bill.findUnique({
-      where: { id },
+      where: {
+        id: id,
+      },
       include: {
-        table: { select: { number: true } },
+        table: true, // ดึงข้อมูลโต๊ะมาด้วย
       },
     });
 
@@ -20,28 +22,34 @@ export async function GET(
       return NextResponse.json({ error: "Bill not found" }, { status: 404 });
     }
 
-    // ดึง Orders ทั้งหมดที่อยู่ใน bill.orderIds พร้อม table info
+    // ดึงข้อมูล orders ที่เกี่ยวข้องกับบิลนี้
     const orders = await db.order.findMany({
-      where: { id: { in: bill.orderIds } },
+      where: {
+        id: {
+          in: bill.orderIds,
+        },
+      },
       include: {
-        table: { select: { number: true } }, // เพิ่มข้อมูลโต๊ะ
         items: {
           include: {
-            menuItem: { select: { name: true, price: true } }, // เพิ่ม price
+            menuItem: true,
+            addons: {
+              include: {
+                addon: true,
+              },
+            },
           },
         },
       },
-      orderBy: { orderTime: "asc" }, // เรียงตามเวลา
     });
 
-    // รวมข้อมูลให้ตรงกับ interface ที่ component คาดหวัง
-    const responseData = {
+    // รวมข้อมูลบิลและออเดอร์
+    const billWithOrders = {
       ...bill,
-      orders, // ใส่ orders เข้าไปใน bill object
-      table: bill.table || orders[0]?.table || null, // ใช้ table จาก bill หรือ order แรก
+      orders: orders,
     };
 
-    return NextResponse.json(responseData);
+    return NextResponse.json(billWithOrders);
   } catch (error) {
     console.error("Failed to fetch bill:", error);
     return NextResponse.json(

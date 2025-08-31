@@ -1,5 +1,6 @@
 // utils/menu.ts
-import { MenuItem } from "../types/Order";
+
+import { MenuItem } from "../types/menu";
 
 export const getStatusText = (status: string): string => {
   switch (status) {

@@ -1,6 +1,12 @@
 "use client";
 import { usePathname } from "next/navigation";
-import { UtensilsCrossed } from "lucide-react";
+import {
+  UtensilsCrossed,
+  Table as TableIcon,
+  Menu,
+  Receipt,
+  BarChart3,
+} from "lucide-react";
 
 import {
   Sidebar,
@@ -19,8 +25,32 @@ const items = [
   {
     title: "ออเดอร์",
     url: "/dashboard/orders",
-    isCollapsible: true,
     icon: UtensilsCrossed,
+    description: "จัดการออเดอร์ใหม่และแจ้งเตือน",
+  },
+  {
+    title: "จัดการโต๊ะ",
+    url: "/dashboard/tables",
+    icon: TableIcon,
+    description: "จัดการสถานะโต๊ะ",
+  },
+  {
+    title: "จัดการเมนู",
+    url: "/dashboard/menu",
+    icon: Menu,
+    description: "เพิ่ม แก้ไข ลบเมนูอาหาร",
+  },
+  {
+    title: "บิล/รายได้",
+    url: "/dashboard/bills",
+    icon: Receipt,
+    description: "ดูบิลและสถิติรายได้",
+  },
+  {
+    title: "รายงาน",
+    url: "/dashboard/reports",
+    icon: BarChart3,
+    description: "รายงานและสถิติ",
   },
 ];
 
@@ -42,7 +72,7 @@ export function AppSidebar() {
             </SidebarGroupLabel>
             <SidebarGroupContent>
               <div className="animate-pulse space-y-2">
-                {[1, 2, 3, 4, 5, 6, 7].map((i) => (
+                {[1, 2, 3, 4, 5].map((i) => (
                   <div key={i} className="h-11 bg-gray-100 rounded-lg" />
                 ))}
               </div>
@@ -57,11 +87,11 @@ export function AppSidebar() {
     <Sidebar className="border-r border-gray-200 shadow-sm">
       <SidebarContent className="bg-white">
         <SidebarGroup>
-          <SidebarGroupLabel className="font-bold text-lg text-gray-800 mb-6 px-4 py-2 border-b border-gray-100">
+          <SidebarGroupLabel className="font-bold text-xl text-gray-800 mb-6 px-4 py-3 border-b border-gray-100 bg-gradient-to-r from-orange-50 to-red-50">
             🍲 ชาบู POS
           </SidebarGroupLabel>
           <SidebarGroupContent className="px-2">
-            <SidebarMenu className="space-y-1">
+            <SidebarMenu className="space-y-2">
               {items.map((item) => {
                 const isActive = pathname === item.url;
 
@@ -70,52 +100,49 @@ export function AppSidebar() {
                     <SidebarMenuButton
                       asChild
                       className={`
-                              h-11 rounded-lg transition-all duration-200 
-                              ${
-                                isActive
-                                  ? "bg-blue-50 text-blue-700 border border-blue-200 shadow-sm"
-                                  : "hover:bg-gray-50 hover:text-gray-900"
-                              }
-                            `}
+                        h-12 rounded-xl transition-all duration-200 group
+                        ${
+                          isActive
+                            ? "bg-gradient-to-r from-blue-500 to-blue-600 text-white border border-blue-500 shadow-lg"
+                            : "hover:bg-gray-50 hover:text-gray-900 hover:shadow-sm"
+                        }
+                      `}
                     >
                       <Link
                         href={item.url}
                         className="flex items-center gap-3 px-3"
                         prefetch={true}
                       >
-                        <item.icon className="h-5 w-5" />
-                        <span className="font-medium">{item.title}</span>
+                        <div
+                          className={`
+                          p-1.5 rounded-lg transition-colors
+                          ${
+                            isActive
+                              ? "bg-white/20"
+                              : "bg-gray-100 group-hover:bg-gray-200"
+                          }
+                        `}
+                        >
+                          <item.icon
+                            className={`h-4 w-4 ${
+                              isActive ? "text-white" : "text-gray-600"
+                            }`}
+                          />
+                        </div>
+                        <div className="flex flex-col">
+                          <span className="font-semibold text-sm">
+                            {item.title}
+                          </span>
+                          <span
+                            className={`text-xs ${
+                              isActive ? "text-white/80" : "text-gray-500"
+                            }`}
+                          >
+                            {item.description}
+                          </span>
+                        </div>
                       </Link>
                     </SidebarMenuButton>
-                    {/* <SidebarMenuSub className="ml-6 mt-1 space-y-1">
-                      {item.subItems?.map((sub) => {
-                        const subActive = pathname === sub.url;
-                        return (
-                          <SidebarMenuSubItem key={sub.title}>
-                            <Link
-                              href={sub.url}
-                              className={`
-                                      flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors
-                                      ${
-                                        subActive
-                                          ? "text-blue-600 font-semibold bg-blue-50"
-                                          : "text-gray-600 hover:text-gray-900 hover:bg-gray-50"
-                                      }
-                                    `}
-                              prefetch={true}
-                            >
-                              <div className="w-1.5 h-1.5 rounded-full bg-current opacity-60" />
-                              <span>{sub.title}</span>
-                              {sub.badge === "live" && (
-                                <span className="ml-auto bg-red-500 text-white text-xs px-1.5 py-0.5 rounded-full animate-pulse">
-                                  LIVE
-                                </span>
-                              )}
-                            </Link>
-                          </SidebarMenuSubItem>
-                        );
-                      })}
-                    </SidebarMenuSub> */}
                   </SidebarMenuItem>
                 );
               })}

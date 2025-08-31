@@ -1,3 +1,5 @@
+// API menu/[id]/route.tsx
+
 import db from "@/src/app/lib/prismaClient";
 import { NextRequest, NextResponse } from "next/server";
 

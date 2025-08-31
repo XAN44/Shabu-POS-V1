@@ -1,4 +1,4 @@
-// MenuManagement.tsx - Updated with Category Management
+// MenuManagement.tsx - Updated with Add-ons Support
 "use client";
 import React, { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -15,6 +15,8 @@ import {
   ChefHat,
   FolderPlus,
   Tags,
+  Settings,
+  Package,
 } from "lucide-react";
 import {
   Dialog,
@@ -39,6 +41,7 @@ import { MenuItem } from "@/src/app/types/Order";
 import Image from "next/image";
 import { toast } from "sonner";
 import { Category } from "@prisma/client";
+import { AddonManager } from "./AddonManager";
 
 interface MenuManagementProps {
   menuItems: MenuItem[];
@@ -57,6 +60,9 @@ export const MenuManagement: React.FC<MenuManagementProps> = ({
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [showAddCategoryDialog, setShowAddCategoryDialog] = useState(false);
+  const [showAddonManager, setShowAddonManager] = useState(false);
+  const [selectedMenuForAddons, setSelectedMenuForAddons] =
+    useState<MenuItem | null>(null);
   const [editingItem, setEditingItem] = useState<MenuItem | null>(null);
   const [deletingItemId, setDeletingItemId] = useState<string | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
@@ -110,7 +116,7 @@ export const MenuManagement: React.FC<MenuManagementProps> = ({
       return;
     }
 
-    setIsLoading(true); // <-- เริ่มโหลด
+    setIsLoading(true);
     try {
       const response = await fetch("/api/categories", {
         method: "POST",
@@ -129,9 +135,10 @@ export const MenuManagement: React.FC<MenuManagementProps> = ({
       console.error("Error adding category:", error);
       toast.error("ไม่สามารถเพิ่มหมวดหมู่ได้");
     } finally {
-      setIsLoading(false); // <-- จบโหลด
+      setIsLoading(false);
     }
   };
+
   const resetForm = () => {
     setFormData({
       name: "",
@@ -161,7 +168,7 @@ export const MenuManagement: React.FC<MenuManagementProps> = ({
       return;
     }
 
-    setIsLoading(true); // <-- เริ่มโหลด
+    setIsLoading(true);
     let imageUrl = formData.image;
     let imageKey = formData.imageKey;
 
@@ -199,7 +206,7 @@ export const MenuManagement: React.FC<MenuManagementProps> = ({
       console.error("Failed to add menu item:", error);
       toast.error("ไม่สามารถเพิ่มเมนูได้");
     } finally {
-      setIsLoading(false); // <-- จบโหลด
+      setIsLoading(false);
     }
   };
 
@@ -220,7 +227,7 @@ export const MenuManagement: React.FC<MenuManagementProps> = ({
   const handleSaveEdit = async () => {
     if (!editingItem) return;
 
-    setIsLoading(true); // <-- เริ่มโหลด
+    setIsLoading(true);
     let imageUrl = formData.image;
     let imageKey = formData.imageKey;
 
@@ -259,7 +266,7 @@ export const MenuManagement: React.FC<MenuManagementProps> = ({
       console.error("Failed to save edit:", error);
       toast.error("ไม่สามารถบันทึกได้");
     } finally {
-      setIsLoading(false); // <-- จบโหลด
+      setIsLoading(false);
     }
   };
 
@@ -271,7 +278,7 @@ export const MenuManagement: React.FC<MenuManagementProps> = ({
   const confirmDelete = async () => {
     if (!deletingItemId) return;
 
-    setIsLoading(true); // <-- เริ่มโหลด
+    setIsLoading(true);
     try {
       await onDeleteMenuItem(deletingItemId);
       setDeletingItemId(null);
@@ -281,12 +288,18 @@ export const MenuManagement: React.FC<MenuManagementProps> = ({
       console.error("Failed to delete menu item:", error);
       toast.error("ไม่สามารถลบเมนูได้");
     } finally {
-      setIsLoading(false); // <-- จบโหลด
+      setIsLoading(false);
     }
   };
 
   const toggleAvailability = (itemId: string, available: boolean) => {
     onEditMenuItem(itemId, { available });
+  };
+
+  // เปิด Addon Manager
+  const handleManageAddons = (item: MenuItem) => {
+    setSelectedMenuForAddons(item);
+    setShowAddonManager(true);
   };
 
   const filteredItems =
@@ -323,7 +336,7 @@ export const MenuManagement: React.FC<MenuManagementProps> = ({
                   จัดการเมนูอาหาร
                 </h2>
                 <p className="text-blue-100 text-lg font-medium">
-                  ระบบจัดการเมนูและหมวดหมู่แบบเรียลไทม์
+                  ระบบจัดการเมนูและตัวเลือกเสริมแบบเรียลไทม์
                 </p>
               </div>
             </div>
@@ -572,42 +585,57 @@ export const MenuManagement: React.FC<MenuManagementProps> = ({
                 )}
 
                 {/* Premium Action Buttons */}
-                <div className="flex justify-end gap-2 pt-4 border-t border-gray-100">
+                <div className="flex justify-between items-center pt-4 border-t border-gray-100">
+                  {/* Add-ons Manager Button */}
                   <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => toggleAvailability(item.id, !item.available)}
-                    className={`rounded-xl transition-all duration-300 hover:scale-110 ${
-                      item.available
-                        ? "hover:bg-green-100 text-green-600"
-                        : "hover:bg-red-100 text-red-600"
-                    }`}
-                    title={item.available ? "ซ่อนเมนู" : "แสดงเมนู"}
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleManageAddons(item)}
+                    className="bg-gradient-to-r from-indigo-50 to-purple-50 border-indigo-200 text-indigo-700 hover:from-indigo-100 hover:to-purple-100 rounded-xl transition-all duration-300 hover:scale-105 font-semibold"
                   >
-                    {item.available ? (
-                      <Eye className="w-5 h-5" />
-                    ) : (
-                      <EyeOff className="w-5 h-5" />
-                    )}
+                    <Settings className="w-4 h-4 mr-1" />
+                    ตัวเลือกเสริม
                   </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => handleEdit(item)}
-                    className="rounded-xl transition-all duration-300 hover:scale-110 hover:bg-blue-100 text-blue-600"
-                    title="แก้ไข"
-                  >
-                    <Edit className="w-5 h-5" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => handleDelete(item.id)}
-                    className="rounded-xl transition-all duration-300 hover:scale-110 hover:bg-red-100 text-red-600"
-                    title="ลบ"
-                  >
-                    <Trash2 className="w-5 h-5" />
-                  </Button>
+
+                  <div className="flex gap-2">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() =>
+                        toggleAvailability(item.id, !item.available)
+                      }
+                      className={`rounded-xl transition-all duration-300 hover:scale-110 ${
+                        item.available
+                          ? "hover:bg-green-100 text-green-600"
+                          : "hover:bg-red-100 text-red-600"
+                      }`}
+                      title={item.available ? "ซ่อนเมนู" : "แสดงเมนู"}
+                    >
+                      {item.available ? (
+                        <Eye className="w-5 h-5" />
+                      ) : (
+                        <EyeOff className="w-5 h-5" />
+                      )}
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => handleEdit(item)}
+                      className="rounded-xl transition-all duration-300 hover:scale-110 hover:bg-blue-100 text-blue-600"
+                      title="แก้ไข"
+                    >
+                      <Edit className="w-5 h-5" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => handleDelete(item.id)}
+                      className="rounded-xl transition-all duration-300 hover:scale-110 hover:bg-red-100 text-red-600"
+                      title="ลบ"
+                    >
+                      <Trash2 className="w-5 h-5" />
+                    </Button>
+                  </div>
                 </div>
               </CardContent>
             </Card>
@@ -636,6 +664,19 @@ export const MenuManagement: React.FC<MenuManagementProps> = ({
             </p>
           </div>
         </div>
+      )}
+
+      {/* Addon Manager Dialog */}
+      {selectedMenuForAddons && (
+        <AddonManager
+          menuItemId={selectedMenuForAddons.id}
+          menuItemName={selectedMenuForAddons.name}
+          isOpen={showAddonManager}
+          onClose={() => {
+            setShowAddonManager(false);
+            setSelectedMenuForAddons(null);
+          }}
+        />
       )}
 
       {/* Add Category Dialog */}
@@ -1083,7 +1124,7 @@ export const MenuManagement: React.FC<MenuManagementProps> = ({
                 onClick={handleSaveEdit}
                 className="bg-gradient-to-r from-emerald-600 to-green-700 hover:from-emerald-700 hover:to-green-800 text-white rounded-2xl shadow-lg transition-all duration-300 hover:shadow-xl"
               >
-                {isLoading ? "กำลังบันทึก" : "บันทึกเ"}
+                {isLoading ? "กำลังบันทึก" : "บันทึก"}
               </Button>
             </DialogFooter>
           </div>
@@ -1129,6 +1170,7 @@ export const MenuManagement: React.FC<MenuManagementProps> = ({
               </Button>
               <Button
                 variant="destructive"
+                disabled={isLoading}
                 onClick={confirmDelete}
                 className="bg-gradient-to-r from-red-600 to-pink-700 hover:from-red-700 hover:to-pink-800 text-white rounded-2xl shadow-lg transition-all duration-300 hover:shadow-xl"
               >

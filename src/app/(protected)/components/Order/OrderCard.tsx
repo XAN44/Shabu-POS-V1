@@ -12,7 +12,6 @@ import {
   CheckCircle2,
   Utensils,
   User,
-  Receipt,
   Timer,
   AlertCircle,
   Play,
@@ -20,16 +19,11 @@ import {
   Check,
   X,
   Zap,
-  Star,
   Sparkles,
-  ArrowRight,
   DollarSign,
   Hash,
   Calendar,
   Activity,
-  Target,
-  Award,
-  TrendingUp,
   Flame,
 } from "lucide-react";
 
@@ -289,7 +283,7 @@ export const OrderCard: React.FC<OrderCardProps> = ({
                 </div>
                 <div className="absolute -top-0.5 -right-0.5 sm:-top-1 sm:-right-1 w-4 h-4 sm:w-5 sm:h-5 bg-gradient-to-br from-amber-400 to-orange-500 rounded-full flex items-center justify-center shadow-md">
                   <span className="text-xs font-bold text-white">
-                    โต๊ะ {order.table?.number || "ถูกลบออก"}
+                    {order.table?.number || "X"}
                   </span>
                 </div>
               </div>
@@ -374,49 +368,58 @@ export const OrderCard: React.FC<OrderCardProps> = ({
               </Badge>
             </div>
 
-            <div className="space-y-2 sm:space-y-3 max-h-32 sm:max-h-40 overflow-y-auto custom-scrollbar">
-              {order.items.map((item, index) => (
-                <div
-                  key={item.id}
-                  className="flex justify-between items-start p-3 sm:p-4 bg-white/70 backdrop-blur-sm rounded-xl sm:rounded-2xl border border-white/50 shadow-sm hover:shadow-md transition-all duration-200"
-                >
-                  <div className="flex-1 space-y-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <div className="w-5 h-5 sm:w-6 sm:h-6 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-md sm:rounded-lg flex items-center justify-center shadow-sm flex-shrink-0">
-                        <span className="text-xs font-bold text-white">
-                          {index + 1}
-                        </span>
-                      </div>
-                      <span className="text-sm sm:text-base font-semibold text-gray-800 truncate">
-                        {item.menuItem?.name || "เมนูถูกลบ"}
+            <div className="space-y-4 p-4 bg-white/80 dark:bg-gray-900/50 rounded-xl shadow-lg">
+              <h3 className="text-lg font-bold text-gray-800 dark:text-gray-200 mb-2">
+                รายการสรุป
+              </h3>
+
+              {order.items.map((item) => {
+                const mainPrice = item.menuItem?.price ?? 0;
+                const mainTotal = mainPrice * item.quantity;
+
+                return (
+                  <div
+                    key={item.id}
+                    className="bg-green-50 dark:bg-green-900/20 rounded-lg p-3 border border-green-200 dark:border-green-700"
+                  >
+                    {/* ชื่อเมนูหลัก + จำนวน */}
+                    <div className="flex justify-between mb-1">
+                      <span className="font-medium text-gray-800 dark:text-gray-200">
+                        {item.menuItem?.name || "เมนูถูกลบ"} x {item.quantity}{" "}
+                        จาน
+                      </span>
+                      <span className="font-bold text-gray-900 dark:text-gray-100">
+                        ฿{mainTotal.toLocaleString()}
                       </span>
                     </div>
-                    {item.notes && (
-                      <div className="ml-7 sm:ml-8 px-2 py-1.5 sm:px-3 sm:py-2 bg-amber-50 border border-amber-200 rounded-lg sm:rounded-xl">
-                        <div className="flex items-center gap-2">
-                          <Star className="w-3 h-3 text-amber-600" />
-                          <span className="text-xs text-amber-700 font-medium">
-                            หมายเหตุ:
-                          </span>
-                        </div>
-                        <p className="text-xs sm:text-sm text-amber-800 mt-1">
-                          {item.notes}
-                        </p>
+
+                    {/* Add-ons */}
+                    {item.addons && item.addons.length > 0 && (
+                      <div className="ml-4 space-y-1">
+                        {item.addons.map((a) => (
+                          <div
+                            key={a.id}
+                            className="flex justify-between text-emerald-700 dark:text-emerald-400 text-sm"
+                          >
+                            <span>
+                              + {a.name} x {a.quantity * item.quantity}{" "}
+                              รวมทั้งหมด
+                            </span>
+                            <span className="font-bold">
+                              ฿
+                              {(
+                                a.price *
+                                a.quantity *
+                                item.quantity
+                              ).toLocaleString()}
+                            </span>
+                          </div>
+                        ))}
                       </div>
                     )}
                   </div>
-                  <div className="text-right ml-2 sm:ml-4 flex-shrink-0">
-                    <div className="flex items-center justify-end gap-1 sm:gap-2 mb-1">
-                      <div className="px-1.5 py-0.5 sm:px-2 sm:py-1 bg-gradient-to-r from-purple-500 to-pink-600 text-white rounded-md sm:rounded-lg text-xs sm:text-sm font-bold">
-                        x{item.quantity}
-                      </div>
-                    </div>
-                    <div className="text-sm sm:text-lg font-bold text-green-600">
-                      ฿{item.price.toLocaleString()}
-                    </div>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
 

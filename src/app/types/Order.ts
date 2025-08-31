@@ -1,3 +1,35 @@
+// types/order.ts
+export interface MenuAddon {
+  id: string;
+  menuItemId: string;
+  name: string;
+  price: number;
+  category?: string;
+  description?: string;
+  available: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface OrderItemAddon {
+  id: string;
+  orderItemId: string;
+  addonId?: string;
+  name: string;
+  price: number;
+  quantity: number;
+  addon?: MenuAddon;
+}
+
+export interface MenuAddon {
+  id: string;
+  name: string;
+  price: number;
+  category?: string;
+  description?: string;
+  available: boolean;
+}
+
 export interface MenuItem {
   id: string;
   name: string;
@@ -7,6 +39,7 @@ export interface MenuItem {
   image?: string;
   imageKey?: string;
   available: boolean;
+  addons?: MenuAddon[];
 }
 
 export interface UploadedFile {
@@ -23,19 +56,23 @@ export interface UploadedFile {
 
 export interface OrderItem {
   id: string;
-  menuItemId: string;
-  menuItem: MenuItem;
+  orderId: string;
+  menuItemId?: string;
   quantity: number;
   notes?: string;
   price: number;
+  menuItemName?: string;
+  menuItem: MenuItem;
+  addons?: OrderItemAddon[];
 }
 
 export interface Table {
   id: string;
-  number: number;
-  status: TableStatus;
+  number: string;
   seats: number;
+  status: "available" | "occupied" | "reserved" | "cleaning";
   qrCode?: string;
+  lastClearedAt?: string;
 }
 
 export type TableStatus = "available" | "occupied" | "reserved" | "cleaning";
@@ -49,15 +86,26 @@ export type OrderStatus =
 
 export interface Order {
   id: string;
-  tableId: string;
-  table: Table;
-  items: OrderItem[];
-  status: OrderStatus;
+  tableId?: string;
+  status: "new" | "preparing" | "ready" | "served" | "cancelled";
   totalAmount: number;
   orderTime: Date;
   notes?: string;
   customerName?: string;
-  billId?: string | null; // ถ้าเคยถูกบิลแล้ว
+  tableNumber?: string;
+  table?: Table;
+  items: OrderItem[];
+  billId?: string;
+}
+
+export interface OrderItemAddon {
+  id: string;
+  orderItemId: string;
+  addonId?: string;
+  name: string;
+  price: number;
+  quantity: number;
+  addon?: MenuAddon; // optional กรณีอยาก include รายละเอียด addon เต็ม ๆ
 }
 
 // ========== Dashboard Metrics ==========
@@ -108,4 +156,45 @@ export interface CurrentMetrics {
   tables: MetricsItem;
   orders: MetricsItem;
   activeOrders: MetricsItem;
+}
+
+export interface DraftCartItem {
+  id: string;
+  draftCartItemId: string;
+  menuItemId?: string;
+  quantity: number;
+  menuItemName?: string;
+  menuItemPrice?: number;
+  menuItem?: MenuItem;
+  addons?: DraftCartItemAddon[]; // เพิ่ม addons
+}
+
+export interface DraftCart {
+  id: string;
+  tableId: string;
+  items: DraftCartItem[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface DraftCartItemAddon {
+  id: string;
+  draftCartItemId: string;
+  addonId?: string;
+  name: string;
+  price: number;
+  quantity: number;
+  addon?: MenuAddon;
+}
+
+export interface MenuItem {
+  id: string;
+  name: string;
+  price: number;
+  category: string;
+  description?: string;
+  image?: string;
+  imageKey?: string;
+  available: boolean;
+  addons?: MenuAddon[]; // เพิ่ม addons
 }

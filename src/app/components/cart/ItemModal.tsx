@@ -1,32 +1,54 @@
 "use client";
-// components/cart/ItemModal.tsx
 import React, { useEffect } from "react";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Minus, X, Utensils } from "lucide-react";
-import { MenuItem } from "@prisma/client";
+import { Plus, Minus, X, Utensils, ShoppingBag, Info } from "lucide-react";
+import { SelectedAddon } from "../../types/menu";
+
+interface Addon {
+  id: string;
+  name: string;
+  price: number;
+  category?: string;
+  description?: string;
+  available: boolean;
+}
+
+interface MenuItemWithAddons {
+  id: string;
+  name: string;
+  price: number;
+  category: string;
+  description: string | null;
+  image: string | null;
+  imageKey: string | null;
+  available: boolean;
+  addons?: Addon[];
+}
 
 interface ItemModalProps {
-  item: MenuItem | null;
+  item: MenuItemWithAddons | null;
   quantity: number;
+  selectedAddons: SelectedAddon[];
   onClose: () => void;
   onQuantityChange: (quantity: number) => void;
+  onSelectedAddonsChange: (addons: SelectedAddon[]) => void;
   onAddToCart: () => void;
 }
 
 export const ItemModal: React.FC<ItemModalProps> = ({
   item,
   quantity,
+  selectedAddons,
   onClose,
   onQuantityChange,
+  onSelectedAddonsChange,
   onAddToCart,
 }) => {
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        onClose();
-      }
+      if (e.key === "Escape") onClose();
     };
     document.addEventListener("keydown", handleEscape);
     return () => document.removeEventListener("keydown", handleEscape);
@@ -34,228 +56,332 @@ export const ItemModal: React.FC<ItemModalProps> = ({
 
   if (!item) return null;
 
+  const incrementAddon = (addon: Addon) => {
+    const existing = selectedAddons.find((a) => a.addon.id === addon.id);
+    if (existing) {
+      const newAddons = selectedAddons.map((a) =>
+        a.addon.id === addon.id ? { ...a, quantity: a.quantity + 1 } : a
+      );
+      onSelectedAddonsChange(newAddons);
+    } else {
+      onSelectedAddonsChange([...selectedAddons, { addon, quantity: 1 }]);
+    }
+  };
+
+  const decrementAddon = (addon: Addon) => {
+    const existing = selectedAddons.find((a) => a.addon.id === addon.id);
+    if (!existing) return;
+
+    if (existing.quantity === 1) {
+      const newAddons = selectedAddons.filter((a) => a.addon.id !== addon.id);
+      onSelectedAddonsChange(newAddons);
+    } else {
+      const newAddons = selectedAddons.map((a) =>
+        a.addon.id === addon.id ? { ...a, quantity: a.quantity - 1 } : a
+      );
+      onSelectedAddonsChange(newAddons);
+    }
+  };
+
+  const getAddonQuantity = (addonId: string) => {
+    return selectedAddons.find((a) => a.addon.id === addonId)?.quantity || 0;
+  };
+
+  const calculateBasePrice = () => item.price * quantity;
+  const calculateAddonsPrice = () => {
+    return (
+      selectedAddons.reduce(
+        (sum, selected) => sum + selected.addon.price * selected.quantity,
+        0
+      ) * quantity
+    );
+  };
+  const calculateTotal = () => calculateBasePrice() + calculateAddonsPrice();
+
   return (
     <div
-      className="fixed inset-0 bg-black/80 backdrop-blur-md flex justify-center items-end sm:items-center z-50 p-0 sm:p-4 overflow-y-auto print:hidden"
+      className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-end sm:items-center justify-center z-50 p-0 sm:p-4"
       onClick={onClose}
       role="dialog"
       aria-modal="true"
-      aria-labelledby="modal-title"
-      aria-describedby="modal-description"
     >
+      {/* Modal Container - Responsive sizing */}
       <div
-        className="bg-white dark:bg-gray-900 rounded-t-2xl sm:rounded-2xl w-full max-w-lg sm:max-w-2xl shadow-2xl overflow-hidden max-h-screen sm:max-h-[95vh] overflow-y-auto relative animate-slide-up sm:animate-scale-in"
+        className="bg-white dark:bg-gray-900 w-full sm:w-[95vw] md:w-[90vw] lg:w-[85vw] xl:w-[80vw] max-w-5xl h-full sm:h-auto sm:max-h-[90vh] rounded-t-3xl sm:rounded-3xl shadow-2xl overflow-hidden flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Close Button */}
-        <button
-          onClick={onClose}
-          className="absolute top-3 right-3 sm:top-4 sm:right-4 z-30 bg-white/95 hover:bg-white dark:bg-gray-800/95 dark:hover:bg-gray-800 text-gray-700 hover:text-gray-900 dark:text-gray-200 dark:hover:text-gray-100 rounded-full p-2 sm:p-3 shadow-xl backdrop-blur-sm transition-all duration-300 hover:scale-110 focus:ring-4 focus:ring-orange-500/20 mt-6"
-          aria-label="ปิด"
-        >
-          <X className="w-5 h-5 sm:w-6 sm:h-6" />
-        </button>
-
-        {/* Image Section */}
-        <div className="relative">
-          {item.image ? (
-            <div className="relative w-full h-48 sm:h-64 md:h-80 lg:h-96">
-              <Image
-                src={item.image}
-                alt={item.name}
-                fill
-                className="object-cover"
-                sizes="(max-width: 640px) 100vw, (max-width: 768px) 100vw, 50vw"
-                priority
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent" />
-            </div>
-          ) : (
-            <div className="relative w-full h-48 sm:h-64 md:h-80 lg:h-96 bg-gradient-to-br from-orange-100 via-amber-50 to-red-100 dark:from-orange-900/20 dark:via-amber-900/20 dark:to-red-900/20 flex items-center justify-center">
-              <div className="text-center space-y-3 sm:space-y-4">
-                <div className="bg-white/80 dark:bg-gray-700/80 backdrop-blur-sm rounded-full p-4 sm:p-6 inline-flex items-center justify-center">
-                  <Utensils className="w-12 h-12 sm:w-16 sm:h-16 text-orange-400" />
-                </div>
-                <p className="text-base sm:text-lg text-gray-500 dark:text-gray-400 font-medium">
-                  ไม่มีรูปภาพ
-                </p>
-              </div>
-            </div>
-          )}
+        {/* Header with Close Button */}
+        <div className="sticky top-0 z-10 bg-white/95 dark:bg-gray-900/95 backdrop-blur-lg border-b border-gray-200 dark:border-gray-700">
+          <div className="flex items-center justify-between p-4 sm:p-6">
+            <Badge variant="secondary" className="text-sm font-medium">
+              {item.category}
+            </Badge>
+            <button
+              onClick={onClose}
+              className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+              aria-label="ปิด"
+            >
+              <X className="w-6 h-6" />
+            </button>
+          </div>
         </div>
 
-        {/* Content Section */}
-        <div className="p-4 sm:p-6 md:p-8 space-y-6 sm:space-y-8">
-          {/* Header */}
-          <div className="space-y-3 sm:space-y-4">
-            <div className="flex flex-col gap-3 sm:gap-4">
-              <div className="flex-1">
-                <h2
-                  id="modal-title"
-                  className="text-xl sm:text-2xl md:text-3xl lg:text-4xl font-bold text-gray-900 dark:text-gray-100 leading-tight mb-2"
-                >
+        {/* Scrollable Content */}
+        <div className="flex-1 overflow-y-auto">
+          <div className="grid grid-cols-1 lg:grid-cols-2 min-h-full">
+            {/* Left Column - Image and Basic Info */}
+            <div className="bg-gray-50 dark:bg-gray-800">
+              {/* Image Section */}
+              <div className="relative w-full h-64 sm:h-80 lg:h-96">
+                {item.image ? (
+                  <Image
+                    src={item.image}
+                    alt={item.name}
+                    fill
+                    className="object-cover"
+                    sizes="(max-width: 1024px) 100vw, 50vw"
+                    priority
+                  />
+                ) : (
+                  <div className="w-full h-full bg-gradient-to-br from-gray-200 to-gray-300 dark:from-gray-700 dark:to-gray-800 flex items-center justify-center">
+                    <div className="text-center">
+                      <Utensils className="w-16 h-16 text-gray-400 dark:text-gray-600 mx-auto mb-4" />
+                      <p className="text-gray-500 dark:text-gray-400 font-medium">
+                        ไม่มีรูปภาพ
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Basic Info */}
+              <div className="p-6 sm:p-8">
+                <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-gray-900 dark:text-white mb-4 leading-tight">
                   {item.name}
-                </h2>
-                <Badge
-                  variant="outline"
-                  className="text-orange-600 dark:text-orange-400 border-orange-300 dark:border-orange-600 bg-orange-50 dark:bg-orange-900/20 px-3 sm:px-4 py-1.5 sm:py-2 font-semibold rounded-full text-xs sm:text-sm"
-                >
-                  {item.category}
-                </Badge>
+                </h1>
+
+                {item.description && (
+                  <div className="mb-6">
+                    <div className="flex items-start gap-2 mb-2">
+                      <Info className="w-5 h-5 text-gray-500 mt-0.5 flex-shrink-0" />
+                      <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                        รายละเอียด
+                      </span>
+                    </div>
+                    <p className="text-gray-600 dark:text-gray-400 leading-relaxed pl-7">
+                      {item.description}
+                    </p>
+                  </div>
+                )}
+
+                {/* Price Display */}
+                <div className="bg-white dark:bg-gray-700 rounded-2xl p-6 border border-gray-200 dark:border-gray-600">
+                  <div className="text-center">
+                    <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">
+                      ราคาต่อจาน
+                    </p>
+                    <p className="text-4xl sm:text-5xl font-bold text-gray-900 dark:text-white">
+                      ฿{item.price.toLocaleString()}
+                    </p>
+                  </div>
+                </div>
               </div>
             </div>
 
-            {item.description && (
-              <div className="bg-gray-50 dark:bg-gray-800/50 rounded-xl p-3 sm:p-4 border border-gray-200 dark:border-gray-700">
-                <p
-                  id="modal-description"
-                  className="text-gray-700 dark:text-gray-300 leading-relaxed text-sm sm:text-base md:text-lg"
-                >
-                  {item.description}
-                </p>
-              </div>
-            )}
-          </div>
+            {/* Right Column - Customization and Actions */}
+            <div className="flex flex-col">
+              <div className="flex-1 p-6 sm:p-8 space-y-8">
+                {/* Quantity Selector */}
+                <div>
+                  <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
+                    จำนวน
+                  </h3>
+                  <div className="flex items-center justify-center gap-4 bg-gray-50 dark:bg-gray-800 rounded-2xl p-6">
+                    <button
+                      onClick={() =>
+                        onQuantityChange(Math.max(1, quantity - 1))
+                      }
+                      disabled={quantity <= 1}
+                      className="w-12 h-12 rounded-full bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 flex items-center justify-center hover:bg-gray-50 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    >
+                      <Minus className="w-5 h-5" />
+                    </button>
 
-          {/* Price Display */}
-          <div className="bg-gradient-to-r from-orange-50 to-red-50 dark:from-orange-900/20 dark:to-red-900/20 rounded-xl p-4 sm:p-6 border-2 border-orange-100 dark:border-orange-800">
-            <div className="text-center space-y-2">
-              <p className="text-xs sm:text-sm font-medium text-gray-600 dark:text-gray-400">
-                ราคาต่อหน่วย
-              </p>
-              <p className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold text-orange-600 dark:text-orange-400">
-                ฿{item.price.toLocaleString()}
-              </p>
-            </div>
-          </div>
+                    <div className="px-8 py-3 bg-white dark:bg-gray-700 rounded-xl border border-gray-200 dark:border-gray-600 min-w-[80px] text-center">
+                      <span className="text-2xl font-bold">{quantity}</span>
+                    </div>
 
-          {/* Quantity Selector */}
-          <div className="space-y-4 sm:space-y-6">
-            <div className="text-center">
-              <h3 className="text-base sm:text-lg font-bold text-gray-800 dark:text-gray-200 mb-2">
-                เลือกจำนวน
-              </h3>
-              <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">
-                กรุณาเลือกจำนวนที่ต้องการ
-              </p>
-            </div>
-
-            <div className="bg-gray-50 dark:bg-gray-800/50 rounded-2xl p-4 sm:p-6 md:p-8 border-2 border-gray-200 dark:border-gray-700">
-              <div className="flex items-center justify-center gap-4 sm:gap-6 md:gap-8">
-                <button
-                  onClick={() => onQuantityChange(Math.max(1, quantity - 1))}
-                  disabled={quantity <= 1}
-                  className="w-12 h-12 sm:w-14 sm:h-14 md:w-16 md:h-16 rounded-xl bg-white dark:bg-gray-700 border-2 border-gray-200 dark:border-gray-600 hover:border-orange-300 dark:hover:border-orange-500 hover:bg-orange-50 dark:hover:bg-orange-900/20 flex items-center justify-center transition-all duration-300 disabled:opacity-50 disabled:hover:bg-white dark:disabled:hover:bg-gray-700 disabled:hover:border-gray-200 dark:disabled:hover:border-gray-600 shadow-lg hover:shadow-xl focus:ring-4 focus:ring-orange-500/20"
-                  aria-label="ลดจำนวน"
-                >
-                  <Minus className="w-5 h-5 sm:w-6 sm:h-6 md:w-8 md:h-8 text-orange-600 dark:text-orange-400" />
-                </button>
-
-                <div className="text-center min-w-[80px] sm:min-w-[100px] md:min-w-[120px]">
-                  <div className="bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-xl p-3 sm:p-4 shadow-lg">
-                    <span className="text-2xl sm:text-3xl md:text-4xl font-bold block">
-                      {quantity}
-                    </span>
-                    <span className="text-xs sm:text-sm opacity-90">จำนวน</span>
+                    <button
+                      onClick={() => onQuantityChange(quantity + 1)}
+                      className="w-12 h-12 rounded-full bg-blue-600 text-white flex items-center justify-center hover:bg-blue-700 transition-colors"
+                    >
+                      <Plus className="w-5 h-5" />
+                    </button>
                   </div>
                 </div>
 
-                <button
-                  onClick={() => onQuantityChange(quantity + 1)}
-                  className="w-12 h-12 sm:w-14 sm:h-14 md:w-16 md:h-16 rounded-xl bg-white dark:bg-gray-700 border-2 border-gray-200 dark:border-gray-600 hover:border-orange-300 dark:hover:border-orange-500 hover:bg-orange-50 dark:hover:bg-orange-900/20 flex items-center justify-center transition-all duration-300 shadow-lg hover:shadow-xl focus:ring-4 focus:ring-orange-500/20"
-                  aria-label="เพิ่มจำนวน"
-                >
-                  <Plus className="w-5 h-5 sm:w-6 sm:h-6 md:w-8 md:h-8 text-orange-600 dark:text-orange-400" />
-                </button>
+                {/* Addons Section */}
+                {item.addons && item.addons.length > 0 && (
+                  <div>
+                    <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
+                      เพิ่มเติม
+                    </h3>
+                    <div className="space-y-3">
+                      {item.addons
+                        .filter((addon) => addon.available)
+                        .map((addon) => {
+                          const addonQty = getAddonQuantity(addon.id);
+                          return (
+                            <div
+                              key={addon.id}
+                              className={`border rounded-2xl p-4 transition-colors ${
+                                addonQty > 0
+                                  ? "border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-950"
+                                  : "border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600"
+                              }`}
+                            >
+                              <div className="flex flex-col xs:flex-row xs:items-center justify-between gap-4">
+                                <div className="flex-1">
+                                  <div className="flex flex-col xs:flex-row xs:items-start xs:justify-between gap-2 mb-2">
+                                    <h4 className="font-semibold text-gray-900 dark:text-white">
+                                      {addon.name}
+                                    </h4>
+                                    <span className="text-lg font-bold text-green-600 dark:text-green-400">
+                                      +฿{addon.price.toLocaleString()}
+                                    </span>
+                                  </div>
+                                  {addon.description && (
+                                    <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
+                                      {addon.description}
+                                    </p>
+                                  )}
+                                  {addonQty > 0 && (
+                                    <div className="text-sm font-medium text-blue-600 dark:text-blue-400">
+                                      เลือกแล้ว: {addonQty} รายการ (฿
+                                      {(
+                                        addon.price * addonQty
+                                      ).toLocaleString()}{" "}
+                                      ต่อจาน)
+                                    </div>
+                                  )}
+                                </div>
+
+                                <div className="flex items-center gap-3 xs:ml-4">
+                                  <button
+                                    onClick={() => decrementAddon(addon)}
+                                    disabled={addonQty === 0}
+                                    className="w-10 h-10 rounded-lg bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 flex items-center justify-center hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                                  >
+                                    <Minus className="w-4 h-4" />
+                                  </button>
+
+                                  <span className="w-8 text-center font-semibold">
+                                    {addonQty}
+                                  </span>
+
+                                  <button
+                                    onClick={() => incrementAddon(addon)}
+                                    className="w-10 h-10 rounded-lg bg-blue-600 text-white flex items-center justify-center hover:bg-blue-700 transition-colors"
+                                  >
+                                    <Plus className="w-4 h-4" />
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                    </div>
+                  </div>
+                )}
+
+                {/* Selected Addons Summary */}
+                {selectedAddons.length > 0 && (
+                  <div className="bg-blue-50 dark:bg-blue-950 rounded-2xl p-6 border border-blue-200 dark:border-blue-800">
+                    <h4 className="font-semibold text-blue-900 dark:text-blue-100 mb-4">
+                      รายการที่เลือก
+                    </h4>
+                    <div className="space-y-2">
+                      {selectedAddons.map((selected) => (
+                        <div
+                          key={selected.addon.id}
+                          className="flex justify-between items-center text-sm"
+                        >
+                          <span className="text-blue-800 dark:text-blue-200">
+                            {selected.addon.name} × {selected.quantity}
+                          </span>
+                          <span className="font-semibold text-blue-900 dark:text-blue-100">
+                            ฿
+                            {(
+                              selected.addon.price * selected.quantity
+                            ).toLocaleString()}
+                            /จาน
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Price Summary */}
+                <div className="bg-gray-50 dark:bg-gray-800 rounded-2xl p-6">
+                  <div className="space-y-3">
+                    <div className="flex justify-between">
+                      <span className="text-gray-600 dark:text-gray-400">
+                        {item.name} × {quantity}
+                      </span>
+                      <span className="font-semibold">
+                        ฿{calculateBasePrice().toLocaleString()}
+                      </span>
+                    </div>
+
+                    {selectedAddons.length > 0 && (
+                      <div className="flex justify-between">
+                        <span className="text-gray-600 dark:text-gray-400">
+                          ของเสริม
+                        </span>
+                        <span className="font-semibold">
+                          ฿{calculateAddonsPrice().toLocaleString()}
+                        </span>
+                      </div>
+                    )}
+
+                    <div className="border-t border-gray-200 dark:border-gray-600 pt-3">
+                      <div className="flex justify-between items-center">
+                        <span className="text-lg font-semibold text-gray-900 dark:text-white">
+                          รวมทั้งหมด
+                        </span>
+                        <span className="text-2xl font-bold text-gray-900 dark:text-white">
+                          ฿{calculateTotal().toLocaleString()}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Fixed Action Buttons */}
+              <div className="border-t border-gray-200 dark:border-gray-700 p-4 sm:p-6 bg-white dark:bg-gray-900">
+                <div className="flex flex-col xs:flex-row gap-3">
+                  <Button
+                    variant="outline"
+                    onClick={onClose}
+                    className="flex-1 h-12 sm:h-14 text-base font-semibold"
+                  >
+                    ยกเลิก
+                  </Button>
+                  <Button
+                    onClick={onAddToCart}
+                    className="flex-1 h-12 sm:h-14 bg-blue-600 hover:bg-blue-700 text-white text-base font-semibold"
+                  >
+                    <ShoppingBag className="w-5 h-5 mr-2" />
+                    เพิ่มลงตะกร้า ฿{calculateTotal().toLocaleString()}
+                  </Button>
+                </div>
               </div>
             </div>
-          </div>
-
-          {/* Total Price */}
-          <div className="bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 rounded-xl p-4 sm:p-6 border-2 border-green-200 dark:border-green-800 shadow-lg">
-            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 sm:gap-4">
-              <div>
-                <p className="text-xs sm:text-sm font-medium text-gray-600 dark:text-gray-400">
-                  ราคารวม
-                </p>
-                <p className="text-sm sm:text-base md:text-lg font-medium text-gray-800 dark:text-gray-200 mt-1">
-                  {quantity} รายการ
-                </p>
-              </div>
-              <div className="text-left sm:text-right">
-                <p className="text-2xl sm:text-3xl md:text-4xl font-bold text-green-600 dark:text-green-400">
-                  ฿{(item.price * quantity).toLocaleString()}
-                </p>
-              </div>
-            </div>
-          </div>
-
-          {/* Action Buttons */}
-          <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 pt-4">
-            <Button
-              variant="outline"
-              onClick={onClose}
-              className="flex-1 h-12 sm:h-14 md:h-16 rounded-xl border-2 border-gray-300 dark:border-gray-600 hover:border-gray-400 dark:hover:border-gray-500 hover:bg-gray-50 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-200 font-bold text-base sm:text-lg transition-all duration-300 focus:ring-4 focus:ring-gray-500/20"
-            >
-              ยกเลิก
-            </Button>
-            <Button
-              onClick={onAddToCart}
-              className="flex-1 h-12 sm:h-14 md:h-16 bg-gradient-to-r from-amber-500 via-orange-500 to-red-500 hover:from-amber-600 hover:via-orange-600 hover:to-red-600 rounded-xl shadow-xl font-bold text-base sm:text-lg transition-all duration-300 hover:shadow-2xl transform hover:scale-105 active:scale-95 focus:ring-4 focus:ring-orange-500/20"
-            >
-              <Plus className="w-5 h-5 sm:w-6 sm:h-6 mr-2 sm:mr-3" />
-              เพิ่มลงตะกร้า
-            </Button>
           </div>
         </div>
       </div>
-
-      <style jsx>{`
-        @keyframes slide-up {
-          from {
-            transform: translateY(100%);
-          }
-          to {
-            transform: translateY(0);
-          }
-        }
-
-        @keyframes scale-in {
-          from {
-            transform: scale(0.9);
-            opacity: 0;
-          }
-          to {
-            transform: scale(1);
-            opacity: 1;
-          }
-        }
-
-        .animate-slide-up {
-          animation: slide-up 0.3s ease-out;
-        }
-
-        .animate-scale-in {
-          animation: scale-in 0.3s ease-out;
-        }
-
-        @media (prefers-reduced-motion: reduce) {
-          .animate-slide-up,
-          .animate-scale-in,
-          .transition-all,
-          .transform {
-            animation: none;
-            transition: none;
-            transform: none;
-          }
-        }
-
-        @media print {
-          .fixed {
-            display: none;
-          }
-        }
-      `}</style>
     </div>
   );
 };

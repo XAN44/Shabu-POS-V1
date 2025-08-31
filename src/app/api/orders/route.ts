@@ -1,3 +1,4 @@
+// order/route.ts
 import { NextResponse } from "next/server";
 import db from "../../lib/prismaClient";
 import {
@@ -6,12 +7,18 @@ import {
   OrderStatusEvent,
   TableStatusEvent,
 } from "../../types/socket";
+import { SelectedAddon, OrderItem } from "../../types/menu";
 
 export async function GET() {
   try {
     const orders = await db.order.findMany({
       include: {
-        items: { include: { menuItem: true } },
+        items: {
+          include: {
+            menuItem: true,
+            addons: true,
+          },
+        },
         table: true,
       },
       orderBy: { orderTime: "desc" },
@@ -47,18 +54,34 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Table not found" }, { status: 404 });
     }
 
+    // Calculate item prices including addons
     const itemsWithPrice = await Promise.all(
-      body.items.map(async (item) => {
+      body.items.map(async (item: OrderItem) => {
         const menu = await db.menuItem.findUnique({
           where: { id: item.menuItemId },
         });
         if (!menu) {
           throw new Error(`Menu item not found: ${item.menuItemId}`);
         }
+
+        // Calculate addons price
+        const addonsPrice = item.selectedAddons
+          ? item.selectedAddons.reduce(
+              (sum: number, addon: SelectedAddon) =>
+                sum + addon.addon.price * addon.quantity,
+              0
+            )
+          : 0;
+
+        const itemPrice = menu.price + addonsPrice;
+
         return {
           ...item,
-          price: menu.price,
+          price: itemPrice,
           menuName: menu.name,
+          basePrice: menu.price,
+          addonsPrice,
+          selectedAddons: item.selectedAddons || [],
         };
       })
     );
@@ -76,18 +99,45 @@ export async function POST(req: Request) {
         notes: body.notes,
         customerName: body.customerName,
         items: {
-          create: itemsWithPrice.map((item) => ({
-            menuItemId: item.menuItemId,
-            quantity: item.quantity,
-            price: item.price,
-            notes: item.option
-              ? `Option: ${item.option}${item.notes ? `, ${item.notes}` : ""}`
-              : item.notes,
-          })),
+          create: itemsWithPrice.map(
+            (
+              item: OrderItem & {
+                price: number;
+                menuName: string;
+                basePrice: number;
+                addonsPrice: number;
+              }
+            ) => ({
+              menuItemId: item.menuItemId,
+              quantity: item.quantity,
+              price: item.price,
+              notes: item.option
+                ? `Option: ${item.option}${item.notes ? `, ${item.notes}` : ""}`
+                : item.notes,
+              addons:
+                item.selectedAddons && item.selectedAddons.length > 0
+                  ? {
+                      create: item.selectedAddons.map(
+                        (selectedAddon: SelectedAddon) => ({
+                          name: selectedAddon.addon.name,
+                          price: selectedAddon.addon.price,
+                          quantity: selectedAddon.quantity,
+                          addonId: selectedAddon.addon.id,
+                        })
+                      ),
+                    }
+                  : undefined,
+            })
+          ),
         },
       },
       include: {
-        items: { include: { menuItem: true } },
+        items: {
+          include: {
+            menuItem: true,
+            addons: true,
+          },
+        },
         table: true,
       },
     });
@@ -98,7 +148,7 @@ export async function POST(req: Request) {
       data: { status: "occupied" },
     });
 
-    // ✅ Enhanced Socket.IO events emission
+    // Enhanced Socket.IO events emission
     try {
       if (global.io) {
         console.log(`📡 Emitting new order events for order ${newOrder.id}`);
@@ -126,18 +176,18 @@ export async function POST(req: Request) {
           timestamp: new Date(),
         };
 
-        // ✅ แจ้ง dashboard ทุกคนว่ามีออเดอร์ใหม่
+        // แจ้ง dashboard ทุกคนว่ามีออเดอร์ใหม่
         global.io.to("dashboard").emit("newOrder", newOrderEvent);
 
-        // ✅ แจ้งโต๊ะที่สั่งว่าออเดอร์ถูกส่งแล้ว
+        // แจ้งโต๊ะที่สั่งว่าออเดอร์ถูกส่งแล้ว
         global.io
           .to(`table-${body.tableId}`)
           .emit("orderStatusUpdated", orderStatusEvent);
 
-        // ✅ แจ้งการเปลี่ยนสถานะโต๊ะ
+        // แจ้งการเปลี่ยนสถานะโต๊ะ
         global.io.to("dashboard").emit("tableStatusChanged", tableStatusEvent);
 
-        // ✅ แจ้งโต๊ะว่ามีการอัปเดตออเดอร์
+        // แจ้งโต๊ะว่ามีการอัปเดตออเดอร์
         global.io.to(`table-${body.tableId}`).emit("tableOrdersUpdate", {
           tableId: body.tableId,
           message: "New order created",

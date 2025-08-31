@@ -1,25 +1,24 @@
-// API
+// API menu
 import { NextRequest, NextResponse } from "next/server";
 import db from "../../lib/prismaClient";
 
 export async function GET() {
-  const menuItems = await db.menuItem.findMany();
-  return NextResponse.json(menuItems);
-}
+  try {
+    const menuItems = await db.menuItem.findMany({
+      include: {
+        addons: true, // ดึง addons ของแต่ละเมนูด้วย
+      },
+      orderBy: {
+        name: "asc", // ถ้าต้องการเรียงชื่อเมนู
+      },
+    });
 
-export async function POST(req: NextRequest) {
-  const data = await req.json();
-
-  const menuItem = await db.menuItem.create({
-    data: {
-      name: data.name,
-      price: data.price,
-      category: data.category,
-      description: data.description,
-      available: data.available,
-      image: data.image,
-      imageKey: data.imageKey,
-    },
-  });
-  return NextResponse.json(menuItem);
+    return NextResponse.json(menuItems);
+  } catch (error) {
+    console.error("GET /api/menu failed:", error);
+    return NextResponse.json(
+      { error: "Failed to fetch menu items" },
+      { status: 500 }
+    );
+  }
 }
