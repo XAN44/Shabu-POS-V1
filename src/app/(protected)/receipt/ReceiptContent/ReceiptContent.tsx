@@ -104,16 +104,6 @@ export default function ReceiptPage() {
 
   return (
     <div className="receipt p-4 text-sm w-80 mx-auto bg-white print:w-full print:max-w-none font-mono">
-      {/* Header */}
-      <div className="text-center border-b-2 border-double pb-3 mb-4">
-        <h1 className="text-xl font-bold mb-1">ร้านอาหาร ABC</h1>
-        <p className="text-xs text-gray-600">Restaurant ABC</p>
-        <div className="mt-2 text-xs">
-          <p>123 ถนนสุขุมวิท กรุงเทพฯ 10110</p>
-          <p>Tel: 02-123-4567</p>
-        </div>
-      </div>
-
       {/* ข้อมูลบิล */}
       <div className="mb-4">
         <div className="grid grid-cols-2 gap-2 text-xs mb-2">

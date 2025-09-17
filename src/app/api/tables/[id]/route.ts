@@ -10,7 +10,7 @@ export async function PATCH(
 
     if (!id) {
       return NextResponse.json(
-        { error: "Order ID is required" },
+        { error: "Table ID is required" },
         { status: 400 }
       );
     }
@@ -24,29 +24,17 @@ export async function PATCH(
       );
     }
 
-    // อัปเดต order
-    const updatedOrder = await db.order.update({
+    // อัปเดต TABLE STATUS ไม่ใช่ ORDER STATUS
+    const updatedTable = await db.table.update({
       where: { id },
       data: { status: newStatus },
-      include: { table: true }, // ดึง table มาด้วย
     });
 
-    // ถ้า order ยังมี table เช็คและอัปเดต status ของ table ด้วย (optional)
-    if (updatedOrder.tableId && updatedOrder.table) {
-      const tableStatus: "available" | "occupied" | "reserved" | "cleaning" =
-        newStatus === "served" ? "available" : "occupied";
-
-      await db.table.update({
-        where: { id: updatedOrder.tableId },
-        data: { status: tableStatus },
-      });
-    }
-
-    return NextResponse.json(updatedOrder);
+    return NextResponse.json(updatedTable);
   } catch (error) {
-    console.error("Failed to update order status:", error);
+    console.error("Failed to update table status:", error);
     return NextResponse.json(
-      { error: "Failed to update order status" },
+      { error: "Failed to update table status" },
       { status: 500 }
     );
   }

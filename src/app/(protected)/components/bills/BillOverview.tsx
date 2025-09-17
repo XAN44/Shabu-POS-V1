@@ -319,24 +319,6 @@ export const BillOverview: React.FC<BillOverviewProps> = ({
             </div>
 
             {/* Average Bill */}
-            <div className="relative group">
-              <div className="absolute inset-0 bg-gradient-to-br from-purple-500/20 to-pink-500/20 rounded-2xl blur-lg transition-all duration-300 group-hover:blur-xl group-hover:scale-110"></div>
-              <div className="relative bg-white/90 backdrop-blur-lg rounded-2xl p-6 shadow-xl border border-white/50 transition-all duration-300 hover:shadow-2xl hover:-translate-y-1">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="w-14 h-14 bg-gradient-to-br from-purple-500 to-pink-600 rounded-xl flex items-center justify-center shadow-lg">
-                    <BarChart3 className="w-7 h-7 text-white" />
-                  </div>
-                  <TrendingUp className="w-5 h-5 text-purple-500 animate-bounce" />
-                </div>
-                <div className="text-4xl font-bold bg-gradient-to-br from-gray-900 to-gray-700 bg-clip-text text-transparent mb-2">
-                  ฿{Math.round(currentStats.averageBillAmount).toLocaleString()}
-                </div>
-                <div className="text-sm text-gray-600 font-semibold">
-                  ค่าเฉลี่ย/บิล
-                </div>
-                <div className="mt-3 w-full h-1.5 bg-gradient-to-r from-purple-500 to-pink-500 rounded-full"></div>
-              </div>
-            </div>
 
             {/* Last Bill Time */}
             <div className="relative group">

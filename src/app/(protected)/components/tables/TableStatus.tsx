@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -11,6 +11,14 @@ import {
   BrushCleaning,
 } from "lucide-react";
 import { Table } from "@/src/app/types/Order";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
 
 interface TableStatusProps {
   table: Table;
@@ -27,14 +35,14 @@ export const TableStatus: React.FC<TableStatusProps> = ({
   onDelete,
   onShowQR,
 }) => {
+  const [confirmOpen, setConfirmOpen] = useState(false);
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case "available":
         return "from-emerald-50 via-green-50 to-teal-50";
       case "occupied":
         return "from-red-50 via-pink-50 to-rose-50";
-      case "reserved":
-        return "from-amber-50 via-yellow-50 to-orange-50";
       case "cleaning":
         return "from-gray-50 via-slate-50 to-zinc-50";
       default:
@@ -48,8 +56,6 @@ export const TableStatus: React.FC<TableStatusProps> = ({
         return "bg-gradient-to-r from-emerald-500 to-green-600 text-white shadow-lg";
       case "occupied":
         return "bg-gradient-to-r from-red-500 to-pink-600 text-white shadow-lg";
-      case "reserved":
-        return "bg-gradient-to-r from-amber-500 to-orange-600 text-white shadow-lg";
       case "cleaning":
         return "bg-gradient-to-r from-gray-500 to-slate-600 text-white shadow-lg";
       default:
@@ -63,8 +69,6 @@ export const TableStatus: React.FC<TableStatusProps> = ({
         return "border-emerald-200/50";
       case "occupied":
         return "border-red-200/50";
-      case "reserved":
-        return "border-amber-200/50";
       case "cleaning":
         return "border-gray-200/50";
       default:
@@ -78,8 +82,6 @@ export const TableStatus: React.FC<TableStatusProps> = ({
         return "ว่าง";
       case "occupied":
         return "มีลูกค้า";
-      case "reserved":
-        return "จอง";
       case "cleaning":
         return "ทำความสะอาด";
       default:
@@ -87,7 +89,7 @@ export const TableStatus: React.FC<TableStatusProps> = ({
     }
   };
 
-  const isActive = table.status === "occupied" || table.status === "reserved";
+  const isActive = table.status === "occupied";
 
   return (
     <div className="relative group">
@@ -107,7 +109,7 @@ export const TableStatus: React.FC<TableStatusProps> = ({
           <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 animate-pulse"></div>
         )}
 
-        {/* Sparkles decoration for occupied/reserved */}
+        {/* Sparkles decoration for occupied */}
         {isActive && (
           <div className="absolute top-4 right-4">
             <Sparkles className="w-5 h-5 text-yellow-400 animate-bounce" />
@@ -180,7 +182,7 @@ export const TableStatus: React.FC<TableStatusProps> = ({
             {table.status === "available" && (
               <div className="relative">
                 <div className="absolute inset-0 bg-gradient-to-r from-orange-200/50 to-red-200/50 rounded-2xl blur-sm"></div>
-                <div className="relative grid grid-cols-2 gap-3 p-3 bg-white/60 backdrop-blur-sm rounded-2xl border border-white/50">
+                <div className="relative grid grid-cols-1 gap-3 p-3 bg-white/60 backdrop-blur-sm rounded-2xl border border-white/50">
                   <Button
                     size="sm"
                     className="bg-gradient-to-r from-red-500 to-pink-600 hover:from-red-600 hover:to-pink-700 text-white font-semibold rounded-xl shadow-lg transition-all duration-300 hover:shadow-xl hover:scale-105"
@@ -188,34 +190,27 @@ export const TableStatus: React.FC<TableStatusProps> = ({
                   >
                     มีลูกค้า
                   </Button>
-                  <Button
-                    size="sm"
-                    className="bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white font-semibold rounded-xl shadow-lg transition-all duration-300 hover:shadow-xl hover:scale-105"
-                    onClick={() => onStatusChange(table.id, "reserved")}
-                  >
-                    จอง
-                  </Button>
                 </div>
               </div>
             )}
 
-            {(table.status === "occupied" || table.status === "reserved") && (
+            {table.status === "occupied" && (
               <div className="relative">
                 <div className="absolute inset-0 bg-gradient-to-r from-gray-200/50 to-emerald-200/50 rounded-2xl blur-sm"></div>
                 <div className="relative grid grid-cols-2 gap-3 p-6 bg-white/60 backdrop-blur-sm rounded-2xl border border-white/50 ">
                   <Button
                     size="sm"
-                    className="  bg-gradient-to-r from-gray-500 to-slate-600 hover:from-gray-600 hover:to-slate-700 text-white font-semibold rounded-xl shadow-lg transition-all duration-300 hover:shadow-xl hover:scale-105"
-                    onClick={() => onStatusChange(table.id, "cleaning")}
+                    className="bg-gradient-to-r from-gray-500 to-slate-600 hover:from-gray-600 hover:to-slate-700 text-white font-semibold rounded-xl shadow-lg transition-all duration-300 hover:shadow-xl hover:scale-105"
+                    onClick={() => setConfirmOpen(true)}
                   >
                     <BrushCleaning />
                   </Button>
                   <Button
                     size="sm"
-                    className="bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-600 hover:to-green-700 text-white font-semibold rounded-xl shadow-lg transition-all duration-300 hover:shadow-xl hover:scale-105"
-                    onClick={() => onStatusChange(table.id, "available")}
+                    disabled
+                    className="bg-gradient-to-r from-red-400 to-red-400 text-white font-semibold rounded-xl shadow-lg"
                   >
-                    ว่าง
+                    กำลังใช้
                   </Button>
                 </div>
               </div>
@@ -238,6 +233,33 @@ export const TableStatus: React.FC<TableStatusProps> = ({
           </div>
         </CardContent>
       </Card>
+
+      {/* ✅ Dialog confirm */}
+      <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>ยืนยันการเปลี่ยนสถานะ</DialogTitle>
+            <DialogDescription>
+              ลูกค้ากำลังใช้งาน แน่ใจหรือไม่ว่าจะเปลี่ยนสถานะโต๊ะเป็น{" "}
+              <span className="font-semibold text-red-500">ทำความสะอาด</span> ?
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="flex gap-2 justify-end">
+            <Button variant="outline" onClick={() => setConfirmOpen(false)}>
+              ยกเลิก
+            </Button>
+            <Button
+              className="bg-gradient-to-r from-gray-500 to-slate-600 text-white"
+              onClick={() => {
+                onStatusChange(table.id, "cleaning");
+                setConfirmOpen(false);
+              }}
+            >
+              ยืนยัน
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
