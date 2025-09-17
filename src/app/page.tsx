@@ -220,7 +220,7 @@ export default async function page() {
                     <p className="text-blue-100 mb-4">
                       จัดการออเดอร์ โต๊ะ เมนู และดูรายงานการขาย
                     </p>
-                    <Link href={`${baseUrl}/orders`}>
+                    <Link href={`${baseUrl}/dashboard/orders`}>
                       <Button className="inline-flex items-center gap-2 bg-white text-blue-600 px-6 py-3 rounded-xl font-semibold hover:bg-blue-50 transition-all duration-200 shadow-lg hover:shadow-xl hover:scale-105">
                         <Monitor className="w-5 h-5" />
                         เข้าสู่ระบบจัดการ
